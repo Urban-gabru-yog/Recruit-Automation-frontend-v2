@@ -19,7 +19,7 @@ const JDGenerator = ({ team, position, onGenerate }) => {
     setLoading(true);
     try {
       const res = await axios.post(
-        " https://637c3cf17ffb.ngrok-free.app/api/n8n/generate-jd",
+        " https://recruit-automation-backend-v2.onrender.com/api/n8n/generate-jd",
         {
           team,
           position,

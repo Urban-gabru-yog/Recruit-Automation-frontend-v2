@@ -17,7 +17,7 @@ const CandidateViewer = () => {
     setLoading(true);
     setError('');
     try {
-      const res = await axios.get(`http://localhost:3001/api/jobs/${job_id}`);
+      const res = await axios.get(`https://recruit-automation-backend-v2.onrender.com/api/jobs/${job_id}`);
       setJob(res.data.job);
       const candidates = res.data.candidates || [];
       // Candidates with 'shortlisted' status from ATS, but not yet reviewed by HR
@@ -45,7 +45,7 @@ const CandidateViewer = () => {
     setError('');
     setLoading(true); // Set loading for the auto-score action
     try {
-      await axios.post("https://17d739b8f570.ngrok-free.app/api/n8n/score-candidates");
+      await axios.post("https://recruit-automation-backend-v2.onrender.com/api/n8n/score-candidates");
       alert("Scoring complete. Data is reloading...");
       await fetchData(); // Fetch data again after scoring
     } catch (err) {
@@ -62,7 +62,7 @@ const CandidateViewer = () => {
     }
     setError('');
     try {
-      await axios.post(`https://17d739b8f570.ngrok-free.app/api/form/update-status/${id}`, { hr_status: status });
+      await axios.post(`https://recruit-automation-backend-v2.onrender.com/api/form/update-status/${id}`, { hr_status: status });
       alert(`Candidate marked as ${status.charAt(0).toUpperCase() + status.slice(1)}.`);
       fetchData(); // Refresh data to update lists
     } catch (err) {
@@ -320,7 +320,7 @@ export default CandidateViewer;
 //     )
 //       return;
 //     try {
-//       await axios.post("http://localhost:3001/api/n8n/score-candidates");
+//       await axios.post("https://recruit-automation-backend-v2.onrender.com/api/n8n/score-candidates");
 //       alert("Scoring complete. Reloading...");
 //       fetchData(); // refresh data
 //     } catch (err) {
@@ -337,7 +337,7 @@ export default CandidateViewer;
 //   const [showRejected, setShowRejected] = useState(false);
 
 //   const fetchData = async () => {
-//     const res = await axios.get(`http://localhost:3001/api/jobs/${job_id}`);
+//     const res = await axios.get(`https://recruit-automation-backend-v2.onrender.com/api/jobs/${job_id}`);
 //     setJob(res.data.job);
 //     const candidates = res.data.candidates || [];
 //     // setShortlisted(candidates.filter((c) => c.status === "shortlisted"));
@@ -367,7 +367,7 @@ export default CandidateViewer;
 //     if (!window.confirm(confirmMsg)) return;
 
 //     try {
-//       await axios.post(`http://localhost:3001/api/form/update-status/${id}`, {
+//       await axios.post(`https://recruit-automation-backend-v2.onrender.com/api/form/update-status/${id}`, {
 //         hr_status: status,
 //       });
 //       alert(`Candidate marked as ${status}`);

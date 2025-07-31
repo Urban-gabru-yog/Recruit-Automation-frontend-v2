@@ -15,7 +15,7 @@ const Login = ({ setUser }) => {
     setIsLoading(true);
 
     try {
-      const res = await axios.post('http://localhost:3001/api/auth/login', { email, password });
+      const res = await axios.post('https://recruit-automation-backend-v2.onrender.com/api/auth/login', { email, password });
       const token = res.data.token;
       const payload = JSON.parse(atob(token.split('.')[1]));
       setUser({ token, role: payload.role });

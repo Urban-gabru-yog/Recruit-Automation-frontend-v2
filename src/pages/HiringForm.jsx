@@ -27,7 +27,7 @@ const HiringForm = () => {
       setLoading(true);
       setError("");
       try {
-        const res = await axios.get(`http://localhost:3001/api/jobs/${job_id}`);
+        const res = await axios.get(`https://recruit-automation-backend-v2.onrender.com/api/jobs/${job_id}`);
         const jobData = res.data.job;
         if (jobData.status === "closed") {
           setIsClosed(true);
@@ -107,7 +107,7 @@ const HiringForm = () => {
       formData.append("team", job.team);
       formData.append("position", job.position);
 
-      await axios.post("http://localhost:3001/api/form/submit", formData, {
+      await axios.post("https://recruit-automation-backend-v2.onrender.com/api/form/submit", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },

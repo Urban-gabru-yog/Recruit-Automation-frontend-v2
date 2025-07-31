@@ -17,7 +17,7 @@ const HiringForm = () => {
   const [isClosed, setIsClosed] = useState(false);
 
   useEffect(() => {
-    axios.get(`http://localhost:3001/api/jobs/${job_id}`).then((res) => {
+    axios.get(`https://recruit-automation-backend-v2.onrender.com/api/jobs/${job_id}`).then((res) => {
       const jobData = res.data.job;
 
       if (jobData.status === "closed") {
@@ -55,7 +55,7 @@ const HiringForm = () => {
       formData.append("team", job.team);
       formData.append("position", job.position);
 
-      await axios.post("http://localhost:3001/api/form/submit", formData);
+      await axios.post("https://recruit-automation-backend-v2.onrender.com/api/form/submit", formData);
       alert("Application submitted!");
       setFormValues({ name: "", email: "", phone: "" });
       setResume(null);

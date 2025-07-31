@@ -21,7 +21,7 @@ const Dashboard = ({ user }) => {
   useEffect(() => {
     const fetchJobs = async () => {
       try {
-        const res = await axios.get("http://localhost:3001/api/jobs");
+        const res = await axios.get("https://recruit-automation-backend-v2.onrender.com/api/jobs");
         setJobs(res.data);
       } catch (err) {
         setError("Failed to fetch job listings.");
@@ -53,7 +53,7 @@ const Dashboard = ({ user }) => {
 
     try {
       const res = await axios.post(
-        "http://localhost:3001/api/jobs/create",
+        "https://recruit-automation-backend-v2.onrender.com/api/jobs/create",
         {
           team,
           position,
@@ -66,7 +66,7 @@ const Dashboard = ({ user }) => {
         }
       );
 
-      const refreshed = await axios.get("http://localhost:3001/api/jobs");
+      const refreshed = await axios.get("https://recruit-automation-backend-v2.onrender.com/api/jobs");
       setJobs(refreshed.data);
       if (res.data.form_link) {
         setSuccessMessage(`Job created! Form URL: ${res.data.form_link}`);
@@ -98,7 +98,7 @@ const Dashboard = ({ user }) => {
     setSuccessMessage("");
     try {
       await axios.post(
-        `http://localhost:3001/api/jobs/close/${id}`,
+        `https://recruit-automation-backend-v2.onrender.com/api/jobs/close/${id}`,
         {},
         {
           headers: { Authorization: `Bearer ${user.token}` },
