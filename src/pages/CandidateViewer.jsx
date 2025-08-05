@@ -173,7 +173,7 @@ const CandidateViewer = () => {
       setShortlisted(candidates.filter((c) => c.hr_status === "shortlisted"));
       setRejected(candidates.filter((c) => c.hr_status === "rejected"));
       setAtsRejected(
-        candidates.filter((c) => (c.ats_score ?? 100) < 70 && !c.hr_status)
+        candidates.filter((c) => c.status === "rejected" && !c.hr_status)
       );
     } catch (err) {
       setError("Failed to fetch candidate data. Please try again.");
@@ -666,7 +666,7 @@ ${c.shortlisting_reason ? `• Reason: ${c.shortlisting_reason}` : ""}
             )}
           {showAtsRejected &&
             renderSection(
-              "ATS Rejected Candidates (Score < 70)",
+              "ATS Rejected Candidates",
               atsRejected,
               false,
               null,
