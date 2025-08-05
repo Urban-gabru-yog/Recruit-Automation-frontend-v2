@@ -4,6 +4,8 @@ import { useParams } from "react-router-dom";
 import axios from "axios";
 // Assuming you have an Urbangabru logo in your public folder or assets
 import UrbangabruLogo from '/urbangabru-logo.png'; // Adjust path as necessary
+const backendUrl = import.meta.env.VITE_BACKEND_URL;
+
 
 const HiringForm = () => {
   const { job_id } = useParams();
@@ -27,7 +29,7 @@ const HiringForm = () => {
       setLoading(true);
       setError("");
       try {
-        const res = await axios.get(`https://recruit-automation-backend-v2.onrender.com/api/jobs/${job_id}`);
+        const res = await axios.get(`${backendUrl}/api/jobs/${job_id}`);
         const jobData = res.data.job;
         if (jobData.status === "closed") {
           setIsClosed(true);
@@ -107,7 +109,7 @@ const HiringForm = () => {
       formData.append("team", job.team);
       formData.append("position", job.position);
 
-      await axios.post("https://recruit-automation-backend-v2.onrender.com/api/form/submit", formData, {
+      await axios.post(`${backendUrl}/api/form/submit`, formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
@@ -431,42 +433,7 @@ const HiringForm = () => {
       </div>
 
       {/* Enhanced Custom styles for animations */}
-      <style jsx>{`
-        @keyframes blob {
-          0% {
-            transform: translate(0px, 0px) scale(1);
-          }
-          33% {
-            transform: translate(30px, -50px) scale(1.1);
-          }
-          66% {
-            transform: translate(-20px, 20px) scale(0.9);
-          }
-          100% {
-            transform: translate(0px, 0px) scale(1);
-          }
-        }
-        .animate-blob {
-          animation: blob 7s infinite;
-        }
-        .animation-delay-2000 {
-          animation-delay: 2s;
-        }
-        .animation-delay-4000 {
-          animation-delay: 4s;
-        }
-        
-        /* Enhanced focus states */
-        input:focus, textarea:focus, select:focus {
-          transform: translateY(-1px);
-          box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.1), 0 4px 6px -2px rgba(99, 102, 241, 0.05);
-        }
-        
-        /* Enhanced hover effects */
-        .group:hover .group-hover\\:scale-105 {
-          transform: scale(1.05);
-        }
-      `}</style>
+      <style> ``</style>
     </div>
   );
 };

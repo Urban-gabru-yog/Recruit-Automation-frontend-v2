@@ -1,6 +1,8 @@
 // JDGenerator.jsx
 import React, { useState } from "react";
 import axios from "axios";
+const backendUrl = import.meta.env.VITE_BACKEND_URL;
+
 
 const JDGenerator = ({ team, position, onGenerate }) => {
   const [responsibilities, setResponsibilities] = useState("");
@@ -16,7 +18,7 @@ const JDGenerator = ({ team, position, onGenerate }) => {
     setError(""); // Clear previous errors
     setLoading(true);
     try {
-      const res = await axios.post("https://recruit-automation-backend-v2.onrender.com/api/n8n/generate-jd", {
+      const res = await axios.post(`${backendUrl}/api/n8n/generate-jd`, {
         team,
         position,
         responsibilities,

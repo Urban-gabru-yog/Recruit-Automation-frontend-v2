@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import JDGenerator from "./JDGenerator"; // Assuming JDGenerator is a separate component
+const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
 const Dashboard = ({ user }) => {
   const [jobs, setJobs] = useState([]);
@@ -20,9 +21,17 @@ const Dashboard = ({ user }) => {
 
   useEffect(() => {
     const fetchJobs = async () => {
+      console.log("backendUrl =", backendUrl);
       try {
-        const res = await axios.get("https://recruit-automation-backend-v2.onrender.com/api/jobs");
-        setJobs(res.data);
+        const res = await axios.get(`${backendUrl}/api/jobs`);
+        console.log("📦 Response from /api/jobs:", res.data);
+        // setJobs(res.data);
+        if (Array.isArray(res.data)) {
+          setJobs(res.data);
+        } else {
+          console.error("❌ Expected array but got:", res.data);
+          setJobs([]); // prevent crash
+        }
       } catch (err) {
         setError("Failed to fetch job listings.");
       }
@@ -53,7 +62,7 @@ const Dashboard = ({ user }) => {
 
     try {
       const res = await axios.post(
-        "https://recruit-automation-backend-v2.onrender.com/api/jobs/create",
+        `${backendUrl}/api/jobs/create`,
         {
           team,
           position,
@@ -66,7 +75,7 @@ const Dashboard = ({ user }) => {
         }
       );
 
-      const refreshed = await axios.get("https://recruit-automation-backend-v2.onrender.com/api/jobs");
+      const refreshed = await axios.get(`${backendUrl}/api/jobs`);
       setJobs(refreshed.data);
       if (res.data.form_link) {
         setSuccessMessage(`Job created! Form URL: ${res.data.form_link}`);
@@ -98,7 +107,7 @@ const Dashboard = ({ user }) => {
     setSuccessMessage("");
     try {
       await axios.post(
-        `https://recruit-automation-backend-v2.onrender.com/api/jobs/close/${id}`,
+        `${backendUrl}/api/jobs/close/${id}`,
         {},
         {
           headers: { Authorization: `Bearer ${user.token}` },
@@ -233,7 +242,7 @@ const Dashboard = ({ user }) => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Custom Questions for Applicants
                 </label>
-                
+
                 {customQuestions.map((q, i) => (
                   <div key={i} className="flex items-center space-x-3">
                     <span className="text-gray-600 font-semibold">
@@ -503,23 +512,15 @@ const Dashboard = ({ user }) => {
                           👁️ Preview
                         </button>
 
-                        <button
+                        {/* <button
                           onClick={() => copyJDToClipboard(job.jd)}
                           className="text-gray-600 hover:text-gray-800 bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-md transition-colors"
                           title="Copy Job Description"
                         >
                           📋 Copy JD
-                        </button>
+                        </button> */}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
-                        {user.role === "hr" && job.status === "open" && (
-                          <button
-                            onClick={() => closeJob(job.id)}
-                            className="text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 px-3 py-1 rounded-md transition-colors"
-                          >
-                            Close Form
-                          </button>
-                        )}
                         {user.role === "hr" && (
                           <a
                             href={`/candidates/${job.id}`}
@@ -530,6 +531,14 @@ const Dashboard = ({ user }) => {
                               View Candidates
                             </button>
                           </a>
+                        )}
+                        {user.role === "hr" && job.status === "open" && (
+                          <button
+                            onClick={() => closeJob(job.id)}
+                            className="text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 px-3 py-1 rounded-md transition-colors"
+                          >
+                            Close Form
+                          </button>
                         )}
                       </td>
                     </tr>
@@ -562,31 +571,7 @@ const Dashboard = ({ user }) => {
       )}
 
       {/* Re-add custom styles for animations */}
-      <style jsx>{`
-        @keyframes blob {
-          0% {
-            transform: translate(0px, 0px) scale(1);
-          }
-          33% {
-            transform: translate(30px, -50px) scale(1.1);
-          }
-          66% {
-            transform: translate(-20px, 20px) scale(0.9);
-          }
-          100% {
-            transform: translate(0px, 0px) scale(1);
-          }
-        }
-        .animate-blob {
-          animation: blob 7s infinite;
-        }
-        .animation-delay-2000 {
-          animation-delay: 2s;
-        }
-        .animation-delay-4000 {
-          animation-delay: 4s;
-        }
-      `}</style>
+      <style> `` </style>
     </div>
   );
 };
