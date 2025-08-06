@@ -316,14 +316,32 @@ const CandidateViewer = () => {
           {c.shortlisting_reason && (
             <div>
               <p className="text-sm font-medium text-gray-700 mb-2">
-                Reason for Shortlisting
+                Reason
               </p>
-              <div className="text-sm text-gray-600 bg-green-50 p-3 rounded-md border-l-4 border-green-400">
-                <p className="break-words">
-                  {isExpanded
-                    ? c.shortlisting_reason
-                    : truncateText(c.shortlisting_reason, 120)}
-                </p>
+
+              <div className="text-sm text-gray-600 bg-green-50 p-3 rounded-md border-l-4 border-green-400 space-y-2">
+                {(() => {
+                  const sentences = c.shortlisting_reason.split(". ");
+                  const strength = sentences[0]?.trim();
+                  const weakness = sentences.slice(1).join(". ")?.trim();
+
+                  return (
+                    <>
+                      {strength && (
+                        <div>
+                          <strong className="text-green-700">Strength:</strong>{" "}
+                          {strength}.
+                        </div>
+                      )}
+                      {weakness && (
+                        <div>
+                          <strong className="text-red-700">Weakness:</strong>{" "}
+                          {weakness}
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
             </div>
           )}
