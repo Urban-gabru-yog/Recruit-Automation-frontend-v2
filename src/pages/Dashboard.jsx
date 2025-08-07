@@ -4,7 +4,7 @@ import axios from "axios";
 import JDGenerator from "./JDGenerator"; // Assuming JDGenerator is a separate component
 const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
-const Dashboard = ({ user }) => {
+const Dashboard = ({ user, setUser }) => {
   const [jobs, setJobs] = useState([]);
   const [team, setTeam] = useState("");
   const [position, setPosition] = useState("");
@@ -135,6 +135,17 @@ const Dashboard = ({ user }) => {
       </div>
 
       <div className="relative max-w-5xl w-full">
+        <div className="flex justify-end mb-4">
+          <button
+            onClick={() => {
+              localStorage.removeItem("user");
+              setUser(null);
+            }}
+            className="font-bold text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 px-3 py-1 rounded-md transition-colors"
+          >
+            Logout
+          </button>
+        </div>
         <div className="bg-white/80 backdrop-blur-lg p-8 rounded-2xl shadow-xl border border-gray-100 mb-10">
           <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center">
             Welcome, {user.role}!
@@ -207,6 +218,8 @@ const Dashboard = ({ user }) => {
                 >
                   <option value="">Choose Team</option>
                   <option value="Tech">Tech</option>
+                  <option value="HR">HR</option>
+                  <option value="Purchase">Purchase</option>
                   <option value="Sales">Sales</option>
                   <option value="Digital Marketing">Digital Marketing</option>
                   <option value="Influencer Marketing">

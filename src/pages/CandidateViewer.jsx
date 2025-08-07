@@ -274,6 +274,11 @@ const CandidateViewer = () => {
               <h4 className="text-lg font-semibold text-gray-900 truncate">
                 {c.name}
               </h4>
+              {c.status === "rejected" && c.hr_status === "shortlisted" && (
+                <span className="inline-block text-xs font-semibold bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full mt-1">
+                  Manually Shortlisted (ATS Rejected)
+                </span>
+              )}
               <p className="text-sm text-blue-600 hover:underline truncate">
                 <a href={`mailto:${c.email}`} className="break-all">
                   {c.email}
@@ -315,9 +320,7 @@ const CandidateViewer = () => {
           {/* Shortlisting Reason */}
           {c.shortlisting_reason && (
             <div>
-              <p className="text-sm font-medium text-gray-700 mb-2">
-                Reason
-              </p>
+              <p className="text-sm font-medium text-gray-700 mb-2">Reason</p>
 
               <div className="text-sm text-gray-600 bg-green-50 p-3 rounded-md border-l-4 border-green-400 space-y-2">
                 {(() => {
