@@ -686,7 +686,7 @@ ${c.shortlisting_reason ? `• Reason: ${c.shortlisting_reason}` : ""}
             renderSection(
               "ATS Rejected Candidates",
               atsRejected,
-              false,
+              true,
               null,
               atsRejectedPage,
               setAtsRejectedPage
