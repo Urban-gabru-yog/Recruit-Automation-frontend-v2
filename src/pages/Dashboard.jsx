@@ -21,11 +21,8 @@ const Dashboard = ({ user, setUser }) => {
 
   useEffect(() => {
     const fetchJobs = async () => {
-      console.log("backendUrl =", backendUrl);
       try {
         const res = await axios.get(`${backendUrl}/api/jobs`);
-        console.log("📦 Response from /api/jobs:", res.data);
-        // setJobs(res.data);
         if (Array.isArray(res.data)) {
           setJobs(res.data);
         } else {
