@@ -18,6 +18,7 @@ const Dashboard = ({ user, setUser }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [showClosedJobs, setShowClosedJobs] = useState(false);
 
   useEffect(() => {
     const fetchJobs = async () => {
@@ -122,6 +123,32 @@ const Dashboard = ({ user, setUser }) => {
     setSuccessMessage("JD copied to clipboard!");
   };
 
+  const hideJob = async (jobId, jobPosition) => {
+    const confirmDelete = window.confirm(
+      `⚠️ PERMANENTLY DELETE "${jobPosition}"?\n\n🗑️ This action cannot be undone!\n\nThe job posting and all associated data will be permanently removed from the system.\n\nAre you absolutely sure you want to proceed?`
+    );
+
+    if (confirmDelete) {
+      setError("");
+      setSuccessMessage("");
+      try {
+        await axios.post(
+          `${backendUrl}/api/jobs/hide/${jobId}`,
+          {},
+          {
+            headers: { Authorization: `Bearer ${user.token}` },
+          }
+        );
+        // Update local jobs state to reflect the change immediately
+        setJobs(jobs.map(j => j.id === jobId ? { ...j, hidden: true } : j));
+        setSuccessMessage("Job deleted permanently!");
+      } catch (err) {
+        setError("Failed to delete job. Please try again.");
+        console.error("Delete job error:", err);
+      }
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col items-center bg-gradient-to-br from-blue-50 via-white to-purple-50 px-4 py-10">
       {/* Background decoration - Reusing blob animation */}
@@ -132,7 +159,20 @@ const Dashboard = ({ user, setUser }) => {
       </div>
 
       <div className="relative max-w-5xl w-full">
-        <div className="flex justify-end mb-4">
+        <div className="flex justify-between items-center mb-4">
+          {/* Hold Pool Button - Only for HR */}
+          {user.role === "hr" && (
+            <a
+              href="/hold-pool"
+              className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-yellow-600 hover:bg-yellow-700 rounded-md transition-colors shadow-sm"
+            >
+              <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+              </svg>
+              Hold Pool
+            </a>
+          )}
+          
           <button
             onClick={() => {
               localStorage.removeItem("user");
@@ -422,139 +462,302 @@ const Dashboard = ({ user, setUser }) => {
               No job listings available.
             </p>
           ) : (
-            <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      ID
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      Team
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      Position
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      Status
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      Form Link
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      JD Actions
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {jobs.map((job) => (
-                    <tr
-                      key={job.id}
-                      className="hover:bg-gray-50 transition-colors"
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {job.id}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                        {job.team}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                        {job.position}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <span
-                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            job.status === "open"
-                              ? "bg-green-100 text-green-800"
-                              : "bg-red-100 text-red-800"
-                          }`}
-                        >
-                          {job.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600 hover:text-blue-800">
-                        {job.form_link ? (
-                          <a
-                            href={job.form_link}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="underline"
-                          >
-                            Open Form
-                          </a>
-                        ) : (
-                          <span className="text-gray-500">N/A</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                        <button
-                          onClick={() => {
-                            setSelectedJD(job.jd);
-                            setShowJDModal(true);
-                          }}
-                          className="text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-md transition-colors"
-                          title="Preview Job Description"
-                        >
-                          👁️ Preview
-                        </button>
+            <div className="space-y-8">
+              {/* Open Jobs Section */}
+              {(() => {
+                const openJobs = jobs.filter(job => job.status === "open");
+                return openJobs.length > 0 ? (
+                  <div>
+                    <h4 className="text-xl font-semibold text-gray-700 mb-4 flex items-center">
+                      <span className="inline-block w-3 h-3 bg-green-500 rounded-full mr-2"></span>
+                      Open Job Positions ({openJobs.length})
+                    </h4>
+                    <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th
+                              scope="col"
+                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                            >
+                              ID
+                            </th>
+                            <th
+                              scope="col"
+                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                            >
+                              Team
+                            </th>
+                            <th
+                              scope="col"
+                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                            >
+                              Position
+                            </th>
+                            <th
+                              scope="col"
+                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                            >
+                              Status
+                            </th>
+                            <th
+                              scope="col"
+                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                            >
+                              Form Link
+                            </th>
+                            <th
+                              scope="col"
+                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                            >
+                              JD Actions
+                            </th>
+                            <th
+                              scope="col"
+                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                            >
+                              Actions
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {openJobs.map((job) => (
+                            <tr
+                              key={job.id}
+                              className="hover:bg-gray-50 transition-colors"
+                            >
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                {job.id}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                {job.team}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                {job.position}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                <span
+                                  className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                    job.status === "open"
+                                      ? "bg-green-100 text-green-800"
+                                      : "bg-red-100 text-red-800"
+                                  }`}
+                                >
+                                  {job.status}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600 hover:text-blue-800">
+                                {job.form_link ? (
+                                  <a
+                                    href={job.form_link}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="underline"
+                                  >
+                                    Open Form
+                                  </a>
+                                ) : (
+                                  <span className="text-gray-500">N/A</span>
+                                )}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                                <button
+                                  onClick={() => {
+                                    setSelectedJD(job.jd);
+                                    setShowJDModal(true);
+                                  }}
+                                  className="text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-md transition-colors"
+                                  title="Preview Job Description"
+                                >
+                                  👁️ Preview
+                                </button>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                                {user.role === "hr" && (
+                                  <a
+                                    href={`/candidates/${job.id}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                  >
+                                    <button className="text-green-600 hover:text-green-800 bg-green-50 hover:bg-green-100 px-3 py-1 rounded-md transition-colors">
+                                      View Candidates
+                                    </button>
+                                  </a>
+                                )}
+                                {user.role === "hr" && job.status === "open" && (
+                                  <button
+                                    onClick={() => closeJob(job.id)}
+                                    className="text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 px-3 py-1 rounded-md transition-colors"
+                                  >
+                                    Close Form
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-gray-600">No open job positions available.</p>
+                  </div>
+                );
+              })()}
 
-                        {/* <button
-                          onClick={() => copyJDToClipboard(job.jd)}
-                          className="text-gray-600 hover:text-gray-800 bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-md transition-colors"
-                          title="Copy Job Description"
+              {/* Closed Jobs Section */}
+              {(() => {
+                const closedJobs = jobs.filter(job => job.status === "closed" && !job.hidden);
+                return closedJobs.length > 0 ? (
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <h4 className="text-xl font-semibold text-gray-700 flex items-center">
+                        <span className="inline-block w-3 h-3 bg-red-500 rounded-full mr-2"></span>
+                        Closed Job Positions ({closedJobs.length})
+                      </h4>
+                      <button
+                        onClick={() => setShowClosedJobs(!showClosedJobs)}
+                        className="flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                      >
+                        <svg
+                          className={`w-4 h-4 mr-2 transform transition-transform ${
+                            showClosedJobs ? "rotate-180" : ""
+                          }`}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
                         >
-                          📋 Copy JD
-                        </button> */}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
-                        {user.role === "hr" && (
-                          <a
-                            href={`/candidates/${job.id}`}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            <button className="text-green-600 hover:text-green-800 bg-green-50 hover:bg-green-100 px-3 py-1 rounded-md transition-colors">
-                              View Candidates
-                            </button>
-                          </a>
-                        )}
-                        {user.role === "hr" && job.status === "open" && (
-                          <button
-                            onClick={() => closeJob(job.id)}
-                            className="text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 px-3 py-1 rounded-md transition-colors"
-                          >
-                            Close Form
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 9l-7 7-7-7"
+                          />
+                        </svg>
+                        {showClosedJobs ? "Hide" : "Show"} Closed Jobs
+                      </button>
+                    </div>
+                    
+                    {showClosedJobs && (
+                      <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm bg-gray-50">
+                        <table className="min-w-full divide-y divide-gray-200">
+                          <thead className="bg-gray-100">
+                            <tr>
+                              <th
+                                scope="col"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                              >
+                                ID
+                              </th>
+                              <th
+                                scope="col"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                              >
+                                Team
+                              </th>
+                              <th
+                                scope="col"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                              >
+                                Position
+                              </th>
+                              <th
+                                scope="col"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                              >
+                                Status
+                              </th>
+                              <th
+                                scope="col"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                              >
+                                Form Link
+                              </th>
+                              <th
+                                scope="col"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                              >
+                                JD Actions
+                              </th>
+                              <th
+                                scope="col"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                              >
+                                Actions
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {closedJobs.map((job) => (
+                              <tr
+                                key={job.id}
+                                className="hover:bg-gray-50 transition-colors opacity-75"
+                              >
+                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                  {job.id}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                  {job.team}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                  {job.position}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                  <span
+                                    className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                      job.status === "open"
+                                        ? "bg-green-100 text-green-800"
+                                        : "bg-red-100 text-red-800"
+                                    }`}
+                                  >
+                                    {job.status}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                  <span>Form Closed</span>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                                  <button
+                                    onClick={() => {
+                                      setSelectedJD(job.jd);
+                                      setShowJDModal(true);
+                                    }}
+                                    className="text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-md transition-colors"
+                                    title="Preview Job Description"
+                                  >
+                                    👁️ Preview
+                                  </button>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                                  {user.role === "hr" && (
+                                    <a
+                                      href={`/candidates/${job.id}`}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                    >
+                                      <button className="text-green-600 hover:text-green-800 bg-green-50 hover:bg-green-100 px-3 py-1 rounded-md transition-colors">
+                                        View Candidates
+                                      </button>
+                                    </a>
+                                  )}
+                                  <button
+                                    onClick={() => hideJob(job.id, job.position)}
+                                    className="text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 px-3 py-1 rounded-md transition-colors"
+                                    title="Permanently delete job from system"
+                                  >
+                                    ⚠️ Delete Job
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                ) : null;
+              })()}
             </div>
           )}
         </div>

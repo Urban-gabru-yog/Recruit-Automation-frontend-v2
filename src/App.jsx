@@ -4,6 +4,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import HiringForm from './pages/HiringForm';
 import CandidateViewer from './pages/CandidateViewer';
+import HoldPool from './pages/HoldPool';
 
 const ProtectedRoute = ({ user, children }) => {
   return user ? children : <Navigate to="/" replace />;
@@ -56,6 +57,16 @@ const App = () => {
           element={
             <ProtectedRoute user={user}>
               <CandidateViewer />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Protected: Hold Pool */}
+        <Route
+          path="/hold-pool"
+          element={
+            <ProtectedRoute user={user}>
+              <HoldPool />
             </ProtectedRoute>
           }
         />

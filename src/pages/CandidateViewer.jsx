@@ -103,6 +103,40 @@ const ArrowPathIcon = (props) => (
   </svg>
 );
 
+const ChevronLeftIcon = (props) => (
+  <svg
+    {...props}
+    xmlns="http://www.w3.org/2000/svg"
+    fill="none"
+    viewBox="0 0 24 24"
+    strokeWidth={1.5}
+    stroke="currentColor"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M15.75 19.5L8.25 12l7.5-7.5"
+    />
+  </svg>
+);
+
+const ChevronRightIcon = (props) => (
+  <svg
+    {...props}
+    xmlns="http://www.w3.org/2000/svg"
+    fill="none"
+    viewBox="0 0 24 24"
+    strokeWidth={1.5}
+    stroke="currentColor"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M8.25 4.5l7.5 7.5-7.5 7.5"
+    />
+  </svg>
+);
+
 const ChevronDownIcon = (props) => (
   <svg
     {...props}
@@ -137,25 +171,83 @@ const ChevronUpIcon = (props) => (
   </svg>
 );
 
+const CalendarIcon = (props) => (
+  <svg
+    {...props}
+    xmlns="http://www.w3.org/2000/svg"
+    fill="none"
+    viewBox="0 0 24 24"
+    strokeWidth={1.5}
+    stroke="currentColor"
+    className="w-4 h-4"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5a2.25 2.25 0 002.25-2.25m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5a2.25 2.25 0 012.25 2.25v7.5m-18 0h18"
+    />
+  </svg>
+);
+
+const ClockIcon = (props) => (
+  <svg
+    {...props}
+    xmlns="http://www.w3.org/2000/svg"
+    fill="none"
+    viewBox="0 0 24 24"
+    strokeWidth={1.5}
+    stroke="currentColor"
+    className="w-4 h-4"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
+    />
+  </svg>
+);
+
+const CheckBadgeIcon = (props) => (
+  <svg
+    {...props}
+    xmlns="http://www.w3.org/2000/svg"
+    fill="none"
+    viewBox="0 0 24 24"
+    strokeWidth={1.5}
+    stroke="currentColor"
+    className="w-4 h-4"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z"
+    />
+  </svg>
+);
+
 const CandidateViewer = () => {
   const { job_id } = useParams();
   const [job, setJob] = useState(null);
   const [shortlisted, setShortlisted] = useState([]);
   const [filtered, setFiltered] = useState([]);
   const [rejected, setRejected] = useState([]);
+  const [held, setHeld] = useState([]);
   const [showRejected, setShowRejected] = useState(false);
+  const [showHeld, setShowHeld] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [atsRejected, setAtsRejected] = useState([]);
   const [showAtsRejected, setShowAtsRejected] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(null);
+  const [updatingInterview, setUpdatingInterview] = useState(null);
 
-  // Pagination states
-  const [filteredPage, setFilteredPage] = useState(1);
-  const [shortlistedPage, setShortlistedPage] = useState(1);
-  const [rejectedPage, setRejectedPage] = useState(1);
-  const [atsRejectedPage, setAtsRejectedPage] = useState(1);
-  const itemsPerPage = 9;
+  // Pagination states - now for carousel
+  const [filteredIndex, setFilteredIndex] = useState(0);
+  const [shortlistedIndex, setShortlistedIndex] = useState(0);
+  const [rejectedIndex, setRejectedIndex] = useState(0);
+  const [heldIndex, setHeldIndex] = useState(0);
+  const [atsRejectedIndex, setAtsRejectedIndex] = useState(0);
+  const itemsPerView = 3;
 
   // Expandable content states
   const [expandedCards, setExpandedCards] = useState(new Set());
@@ -172,6 +264,7 @@ const CandidateViewer = () => {
       );
       setShortlisted(candidates.filter((c) => c.hr_status === "shortlisted"));
       setRejected(candidates.filter((c) => c.hr_status === "rejected"));
+      setHeld(candidates.filter((c) => c.hr_status === "hold"));
       setAtsRejected(
         candidates.filter((c) => c.status === "rejected" && !c.hr_status)
       );
@@ -212,6 +305,31 @@ const CandidateViewer = () => {
       console.error("Status update failed:", err);
     } finally {
       setUpdatingStatus(null);
+    }
+  };
+
+  const handleInterviewStatusUpdate = async (id, interviewStatus, candidateName) => {
+    const statusText = interviewStatus === "scheduled" ? "Interview Scheduled" : "Interview Taken";
+    if (
+      !window.confirm(
+        `Mark "${candidateName}" as "${statusText}"?`
+      )
+    ) {
+      return;
+    }
+    setError("");
+    setUpdatingInterview(id);
+    try {
+      await axios.post(`${backendUrl}/api/form/update-interview-status/${id}`, {
+        interview_status: interviewStatus,
+      });
+      alert(`Candidate interview status updated to "${statusText}".`);
+      fetchData();
+    } catch (err) {
+      setError("Failed to update interview status. Please try again.");
+      console.error("Interview status update failed:", err);
+    } finally {
+      setUpdatingInterview(null);
     }
   };
 
@@ -259,7 +377,7 @@ const CandidateViewer = () => {
     );
   };
 
-  const renderCandidateCard = (c, showActions = false) => {
+  const renderCandidateCard = (c, showActions = false, actionType = "default") => {
     const isExpanded = expandedCards.has(c.id);
 
     return (
@@ -274,11 +392,31 @@ const CandidateViewer = () => {
               <h4 className="text-lg font-semibold text-gray-900 truncate">
                 {c.name}
               </h4>
-              {c.status === "rejected" && c.hr_status === "shortlisted" && (
-                <span className="inline-block text-xs font-semibold bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full mt-1">
-                  Manually Shortlisted (ATS Rejected)
-                </span>
-              )}
+              {/* Status badges */}
+              <div className="flex flex-wrap gap-1 mt-1">
+                {c.status === "rejected" && c.hr_status === "shortlisted" && (
+                  <span className="inline-block text-xs font-semibold bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full">
+                    Manually Shortlisted (ATS Rejected)
+                  </span>
+                )}
+                {c.hr_status === "hold" && (
+                  <span className="inline-block text-xs font-semibold bg-orange-100 text-orange-800 px-2 py-0.5 rounded-full">
+                    On Hold
+                  </span>
+                )}
+                {c.interview_status === "scheduled" && (
+                  <span className="inline-flex items-center text-xs font-semibold bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
+                    <CalendarIcon className="w-3 h-3 mr-1" />
+                    Interview Scheduled
+                  </span>
+                )}
+                {c.interview_status === "taken" && (
+                  <span className="inline-flex items-center text-xs font-semibold bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
+                    <CheckBadgeIcon className="w-3 h-3 mr-1" />
+                    Interview Taken
+                  </span>
+                )}
+              </div>
               <p className="text-sm text-blue-600 hover:underline truncate">
                 <a href={`mailto:${c.email}`} className="break-all">
                   {c.email}
@@ -401,24 +539,112 @@ const CandidateViewer = () => {
               <span className="text-sm text-gray-500">Resume N/A</span>
             )}
 
-            {/* Replace the existing action buttons section in Card Footer with this improved version */}
+            {/* Interview Status Actions for Shortlisted Candidates */}
+            {c.hr_status === "shortlisted" && (
+              <div className="flex items-center gap-2">
+                {!c.interview_status && (
+                  <>
+                    <button
+                      onClick={() => handleInterviewStatusUpdate(c.id, "scheduled", c.name)}
+                      disabled={updatingInterview === c.id}
+                      className="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-700 bg-blue-100 hover:bg-blue-200 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {updatingInterview === c.id ? (
+                        "..."
+                      ) : (
+                        <>
+                          <CalendarIcon className="w-3 h-3 mr-1" />
+                          Interview Scheduled
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => handleInterviewStatusUpdate(c.id, "taken", c.name)}
+                      disabled={updatingInterview === c.id}
+                      className="inline-flex items-center px-2 py-1 text-xs font-medium text-green-700 bg-green-100 hover:bg-green-200 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {updatingInterview === c.id ? (
+                        "..."
+                      ) : (
+                        <>
+                          <CheckBadgeIcon className="w-3 h-3 mr-1" />
+                          Interview Taken
+                        </>
+                      )}
+                    </button>
+                  </>
+                )}
+                {c.interview_status === "scheduled" && (
+                  <button
+                    onClick={() => handleInterviewStatusUpdate(c.id, "taken", c.name)}
+                    disabled={updatingInterview === c.id}
+                    className="inline-flex items-center px-2 py-1 text-xs font-medium text-green-700 bg-green-100 hover:bg-green-200 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {updatingInterview === c.id ? (
+                      "Updating..."
+                    ) : (
+                      <>
+                        <CheckBadgeIcon className="w-3 h-3 mr-1" />
+                        Interview Taken
+                      </>
+                    )}
+                  </button>
+                )}
+                {c.interview_status === "taken" && (
+                  <span className="inline-flex items-center px-2 py-1 text-xs font-medium text-green-700 bg-green-100 rounded-md">
+                    <CheckBadgeIcon className="w-3 h-3 mr-1" />
+                    Interview Complete
+                  </span>
+                )}
+              </div>
+            )}
 
+            {/* Action buttons */}
             {showActions && (
-              <div className="flex gap-3">
-                <button
-                  className="flex-1 inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 rounded-md transition-colors duration-200 disabled:opacity-50 disabled:bg-gray-400 disabled:cursor-not-allowed shadow-sm"
-                  onClick={() => handleStatusUpdate(c.id, "shortlisted")}
-                  disabled={updatingStatus === c.id}
-                >
-                  {updatingStatus === c.id ? "Processing..." : "Shortlist"}
-                </button>
-                <button
-                  className="flex-1 inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:text-white hover:bg-red-600 hover:border-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 rounded-md transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
-                  onClick={() => handleStatusUpdate(c.id, "rejected")}
-                  disabled={updatingStatus === c.id}
-                >
-                  {updatingStatus === c.id ? "Processing..." : "Reject"}
-                </button>
+              <div className="flex gap-2">
+                {actionType === "default" && (
+                  <>
+                    <button
+                      className="flex-1 inline-flex items-center justify-center px-3 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 rounded-md transition-colors duration-200 disabled:opacity-50 disabled:bg-gray-400 disabled:cursor-not-allowed shadow-sm"
+                      onClick={() => handleStatusUpdate(c.id, "shortlisted")}
+                      disabled={updatingStatus === c.id}
+                    >
+                      {updatingStatus === c.id ? "..." : "Shortlist"}
+                    </button>
+                    <button
+                      className="flex-1 inline-flex items-center justify-center px-3 py-2 text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 rounded-md transition-colors duration-200 disabled:opacity-50 disabled:bg-gray-400 disabled:cursor-not-allowed shadow-sm"
+                      onClick={() => handleStatusUpdate(c.id, "hold")}
+                      disabled={updatingStatus === c.id}
+                    >
+                      {updatingStatus === c.id ? "..." : "Hold"}
+                    </button>
+                    <button
+                      className="flex-1 inline-flex items-center justify-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:text-white hover:bg-red-600 hover:border-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 rounded-md transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                      onClick={() => handleStatusUpdate(c.id, "rejected")}
+                      disabled={updatingStatus === c.id}
+                    >
+                      {updatingStatus === c.id ? "..." : "Reject"}
+                    </button>
+                  </>
+                )}
+                {actionType === "hold" && (
+                  <>
+                    <button
+                      className="flex-1 inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 rounded-md transition-colors duration-200 disabled:opacity-50 disabled:bg-gray-400 disabled:cursor-not-allowed shadow-sm"
+                      onClick={() => handleStatusUpdate(c.id, "shortlisted")}
+                      disabled={updatingStatus === c.id}
+                    >
+                      {updatingStatus === c.id ? "Processing..." : "Shortlist"}
+                    </button>
+                    <button
+                      className="flex-1 inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:text-white hover:bg-red-600 hover:border-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 rounded-md transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                      onClick={() => handleStatusUpdate(c.id, "rejected")}
+                      disabled={updatingStatus === c.id}
+                    >
+                      {updatingStatus === c.id ? "Processing..." : "Reject"}
+                    </button>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -427,54 +653,47 @@ const CandidateViewer = () => {
     );
   };
 
-  const renderPagination = (currentPage, setCurrentPage, totalItems) => {
-    const totalPages = Math.ceil(totalItems / itemsPerPage);
-    if (totalPages <= 1) return null;
+  const renderCarouselNavigation = (currentIndex, setCurrentIndex, totalItems) => {
+    const maxIndex = Math.max(0, totalItems - itemsPerView);
+    if (totalItems <= itemsPerView) return null;
 
     return (
-      <div className="flex justify-center items-center space-x-2 mt-6">
+      <div className="flex justify-center items-center space-x-4 mt-6">
         <button
-          onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-          disabled={currentPage === 1}
-          className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          onClick={() => setCurrentIndex(Math.max(0, currentIndex - 1))}
+          disabled={currentIndex === 0}
+          className="p-2 rounded-full bg-white border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition-all duration-200"
+          title="Previous"
         >
-          Previous
+          <ChevronLeftIcon className="w-5 h-5 text-gray-600" />
         </button>
 
-        <div className="flex space-x-1">
-          {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-            let pageNum;
-            if (totalPages <= 5) {
-              pageNum = i + 1;
-            } else {
-              const start = Math.max(1, currentPage - 2);
-              const end = Math.min(totalPages, start + 4);
-              pageNum = start + i;
-              if (pageNum > end) return null;
-            }
-
-            return (
+        <div className="flex items-center space-x-2">
+          <span className="text-sm text-gray-600">
+            {currentIndex + 1}-{Math.min(currentIndex + itemsPerView, totalItems)} of {totalItems}
+          </span>
+          <div className="flex space-x-1">
+            {Array.from({ length: Math.ceil(totalItems / itemsPerView) }, (_, i) => (
               <button
-                key={pageNum}
-                onClick={() => setCurrentPage(pageNum)}
-                className={`px-3 py-2 text-sm font-medium rounded-md ${
-                  currentPage === pageNum
-                    ? "text-white bg-blue-600 border border-blue-600"
-                    : "text-gray-700 bg-white border border-gray-300 hover:bg-gray-50"
+                key={i}
+                onClick={() => setCurrentIndex(i * itemsPerView)}
+                className={`w-2 h-2 rounded-full transition-all duration-200 ${
+                  Math.floor(currentIndex / itemsPerView) === i
+                    ? "bg-blue-600"
+                    : "bg-gray-300 hover:bg-gray-400"
                 }`}
-              >
-                {pageNum}
-              </button>
-            );
-          })}
+              />
+            ))}
+          </div>
         </div>
 
         <button
-          onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-          disabled={currentPage === totalPages}
-          className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          onClick={() => setCurrentIndex(Math.min(maxIndex, currentIndex + 1))}
+          disabled={currentIndex >= maxIndex}
+          className="p-2 rounded-full bg-white border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition-all duration-200"
+          title="Next"
         >
-          Next
+          <ChevronRightIcon className="w-5 h-5 text-gray-600" />
         </button>
       </div>
     );
@@ -485,12 +704,13 @@ const CandidateViewer = () => {
     list,
     showActions = false,
     id = null,
-    currentPage = 1,
-    setCurrentPage = null
+    currentIndex = 0,
+    setCurrentIndex = null,
+    actionType = "default"
   ) => {
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    const paginatedList = list.slice(startIndex, endIndex);
+    const startIndex = currentIndex;
+    const endIndex = startIndex + itemsPerView;
+    const visibleItems = list.slice(startIndex, endIndex);
 
     return (
       <section className="mb-8" id={id}>
@@ -502,10 +722,9 @@ const CandidateViewer = () => {
                 <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
                   {list.length} candidates
                 </span>
-                {list.length > itemsPerPage && (
+                {list.length > itemsPerView && (
                   <span className="text-sm text-gray-500">
-                    Showing {startIndex + 1}-{Math.min(endIndex, list.length)}{" "}
-                    of {list.length}
+                    Showing {startIndex + 1}-{Math.min(endIndex, list.length)} of {list.length}
                   </span>
                 )}
               </div>
@@ -524,13 +743,29 @@ const CandidateViewer = () => {
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                  {paginatedList.map((c) =>
-                    renderCandidateCard(c, showActions)
-                  )}
+                {/* Carousel Container */}
+                <div className="relative overflow-hidden">
+                  <div 
+                    className="flex transition-transform duration-300 ease-in-out"
+                    style={{ transform: `translateX(-${(currentIndex * 100) / itemsPerView}%)` }}
+                  >
+                    {list.map((candidate, index) => (
+                      <div 
+                        key={candidate.id} 
+                        className="flex-shrink-0 px-3"
+                        style={{ width: `${100 / itemsPerView}%` }}
+                      >
+                        <div className="h-full">
+                          {renderCandidateCard(candidate, showActions, actionType)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                {setCurrentPage &&
-                  renderPagination(currentPage, setCurrentPage, list.length)}
+                
+                {/* Carousel Navigation */}
+                {setCurrentIndex &&
+                  renderCarouselNavigation(currentIndex, setCurrentIndex, list.length)}
               </>
             )}
           </div>
@@ -632,6 +867,12 @@ ${c.shortlisting_reason ? `• Reason: ${c.shortlisting_reason}` : ""}
                 Shortlisted ({shortlisted.length})
               </a>
               <button
+                onClick={() => setShowHeld(!showHeld)}
+                className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium text-orange-700 bg-orange-100 hover:bg-orange-200 transition-colors"
+              >
+                {showHeld ? "Hide" : "View"} On Hold ({held.length})
+              </button>
+              <button
                 onClick={() => setShowRejected(!showRejected)}
                 className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors"
               >
@@ -665,25 +906,35 @@ ${c.shortlisting_reason ? `• Reason: ${c.shortlisting_reason}` : ""}
             filtered,
             true,
             "pending-candidates",
-            filteredPage,
-            setFilteredPage
+            filteredIndex,
+            setFilteredIndex
           )}
           {renderSection(
             "HR Shortlisted Candidates",
             shortlisted,
             false,
             "hr-shortlisted",
-            shortlistedPage,
-            setShortlistedPage
+            shortlistedIndex,
+            setShortlistedIndex
           )}
+          {showHeld &&
+            renderSection(
+              "Candidates On Hold",
+              held,
+              true,
+              "candidates-on-hold",
+              heldIndex,
+              setHeldIndex,
+              "hold"
+            )}
           {showRejected &&
             renderSection(
               "HR Rejected Candidates",
               rejected,
               false,
               null,
-              rejectedPage,
-              setRejectedPage
+              rejectedIndex,
+              setRejectedIndex
             )}
           {showAtsRejected &&
             renderSection(
@@ -691,8 +942,8 @@ ${c.shortlisting_reason ? `• Reason: ${c.shortlisting_reason}` : ""}
               atsRejected,
               true,
               null,
-              atsRejectedPage,
-              setAtsRejectedPage
+              atsRejectedIndex,
+              setAtsRejectedIndex
             )}
         </main>
       </div>
