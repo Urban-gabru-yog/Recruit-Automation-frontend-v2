@@ -4,6 +4,8 @@ import { useParams } from "react-router-dom";
 import axios from "axios";
 // Assuming you have an Urbangabru logo in your public folder or assets
 import UrbangabruLogo from "/urbangabru-logo.png"; // Adjust path as necessary
+import { validateEmail } from "../utils/emailValidator"; // ✅ Import email validator
+import { validatePhoneNumber } from "../utils/phoneValidator"; // ✅ Import phone validator
 const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
 const HiringForm = () => {
@@ -24,6 +26,22 @@ const HiringForm = () => {
   const [success, setSuccess] = useState("");
   const [resumeError, setResumeError] = useState("");
   const [suggestedName, setSuggestedName] = useState("");
+  const [duplicateCheck, setDuplicateCheck] = useState({
+    checking: false,
+    isDuplicate: false,
+    appliedDate: null,
+    duplicateType: null,
+    message: null
+  });
+  const [emailValidation, setEmailValidation] = useState({
+    isValid: false, // ✅ Start as invalid since email is required
+    error: null,
+    suggestion: null
+  });
+  const [phoneValidation, setPhoneValidation] = useState({
+    isValid: false, // ✅ Start as invalid since phone is required
+    error: null
+  });
 
   useEffect(() => {
     const fetchJobData = async () => {
@@ -99,6 +117,104 @@ const HiringForm = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormValues((prevValues) => ({ ...prevValues, [name]: value }));
+    
+    // ✅ Validate email and check for duplicates when email changes
+    if (name === 'email') {
+      // Reset previous states
+      setDuplicateCheck({ checking: false, isDuplicate: false, appliedDate: null });
+      
+      if (value && value.trim().length > 0) {
+        // ✅ Always validate email format and domain for any non-empty input
+        const emailValidationResult = validateEmail(value);
+        setEmailValidation(emailValidationResult);
+        
+        // Only check for duplicates if email is valid and contains @
+        if (emailValidationResult.isValid && value.includes('@')) {
+          checkDuplicateApplication(value);
+        }
+      } else {
+        // ✅ Empty email should be treated as invalid
+        setEmailValidation({ 
+          isValid: false, 
+          error: 'Email is required', 
+          suggestion: null 
+        });
+      }
+    }
+    
+    // ✅ Validate phone number when it changes
+    if (name === 'phone') {
+      if (value && value.trim().length > 0) {
+        const phoneValidationResult = validatePhoneNumber(value);
+        setPhoneValidation(phoneValidationResult);
+        
+        // Re-check duplicates if email is valid and phone is valid
+        if (formValues.email && emailValidation.isValid && phoneValidationResult.isValid) {
+          setTimeout(() => {
+            checkDuplicateApplication(formValues.email);
+          }, 500);
+        }
+      } else {
+        setPhoneValidation({ 
+          isValid: false, 
+          error: 'Phone number is required'
+        });
+      }
+    }
+    
+    // ✅ Re-check duplicates when phone number changes (if email is valid)
+    if (name === 'phone' && formValues.email && emailValidation.isValid) {
+      // Small delay to avoid too many API calls while typing
+      setTimeout(() => {
+        checkDuplicateApplication(formValues.email);
+      }, 500);
+    }
+  };
+
+  // ✅ Function to check if candidate already applied
+  const checkDuplicateApplication = async (email) => {
+    if (!email || !email.includes('@') || !job_id) return;
+    
+    setDuplicateCheck(prev => ({ ...prev, checking: true }));
+    
+    try {
+      const response = await axios.post(`${backendUrl}/api/form/check-duplicate`, {
+        email: email.toLowerCase().trim(),
+        phone: formValues.phone, // ✅ Include phone number in duplicate check
+        job_id: job_id
+      });
+      
+      if (response.data.isDuplicate) {
+        setDuplicateCheck({
+          checking: false,
+          isDuplicate: true,
+          appliedDate: response.data.appliedDate,
+          duplicateType: response.data.duplicateType,
+          message: response.data.message
+        });
+      } else {
+        setDuplicateCheck({
+          checking: false,
+          isDuplicate: false,
+          appliedDate: null,
+          duplicateType: null,
+          message: null
+        });
+      }
+    } catch (err) {
+      console.error('Duplicate check failed:', err);
+      
+      // ✅ Handle email validation errors from backend
+      if (err.response?.data?.isEmailInvalid) {
+        setEmailValidation({
+          isValid: false,
+          error: err.response.data.error,
+          suggestion: err.response.data.suggestion
+        });
+      }
+      
+      setDuplicateCheck(prev => ({ ...prev, checking: false }));
+    }
   };
 
   const handleResumeUpload = (e) => {
@@ -146,6 +262,36 @@ const HiringForm = () => {
     setSubmitting(true);
 
     // client-side guards
+    if (!formValues.email || !formValues.email.trim()) {
+      setSubmitting(false);
+      setError("Email is required.");
+      return;
+    }
+    
+    if (!emailValidation.isValid) {
+      setSubmitting(false);
+      setError(emailValidation.error || "Please enter a valid email address.");
+      return;
+    }
+    
+    if (!formValues.phone || !formValues.phone.trim()) {
+      setSubmitting(false);
+      setError("Phone number is required.");
+      return;
+    }
+    
+    if (!phoneValidation.isValid) {
+      setSubmitting(false);
+      setError(phoneValidation.error || "Please enter a valid phone number.");
+      return;
+    }
+    
+    if (duplicateCheck.isDuplicate) {
+      setSubmitting(false);
+      setError("You have already applied for this position. Multiple applications for the same job are not allowed.");
+      return;
+    }
+    
     if (!resume) {
       setSubmitting(false);
       setError("Please attach your resume (PDF/DOC/DOCX, up to 2 MB).");
@@ -199,6 +345,30 @@ const HiringForm = () => {
         setError(err?.response?.data?.error || "Please upload a PDF/DOC/DOCX.");
       else if (status === 502)
         setError("Resume upload failed. Please try again.");
+      else if (status === 409) {
+        // ✅ Handle duplicate application error from backend
+        const errorData = err?.response?.data;
+        setError(errorData?.error || "You have already applied for this position.");
+        setDuplicateCheck({
+          checking: false,
+          isDuplicate: true,
+          appliedDate: errorData?.appliedDate,
+          duplicateType: errorData?.duplicateType || 'email',
+          message: errorData?.error
+        });
+      }
+      else if (err?.response?.data?.isEmailInvalid) {
+        // ✅ Handle email validation errors from backend
+        setError(err.response.data.error);
+        if (err.response.data.suggestion) {
+          setError(`${err.response.data.error}. ${err.response.data.suggestion}`);
+        }
+        setEmailValidation({
+          isValid: false,
+          error: err.response.data.error,
+          suggestion: err.response.data.suggestion
+        });
+      }
       console.error(
         "Submission failed:",
         err.response ? err.response.data : err.message
@@ -449,24 +619,96 @@ const HiringForm = () => {
                   value={formValues.email}
                   onChange={handleChange}
                   required
-                  className="w-full px-4 py-4 border border-gray-200 rounded-xl focus:outline-none focus:ring-3 focus:ring-indigo-100 focus:border-indigo-400 transition-all duration-200 bg-gray-50/50 hover:bg-white text-gray-800 placeholder-gray-400"
+                  className={`w-full px-4 py-4 border rounded-xl focus:outline-none focus:ring-3 transition-all duration-200 bg-gray-50/50 hover:bg-white text-gray-800 placeholder-gray-400 ${
+                    (formValues.email && formValues.email.trim().length > 0 && (!emailValidation.isValid || duplicateCheck.isDuplicate))
+                      ? 'border-red-300 focus:ring-red-100 focus:border-red-400' 
+                      : 'border-gray-200 focus:ring-indigo-100 focus:border-indigo-400'
+                  }`}
                 />
                 <div className="absolute inset-y-0 right-0 flex items-center pr-4">
-                  <svg
-                    className="w-5 h-5 text-gray-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                    />
-                  </svg>
+                  {duplicateCheck.checking ? (
+                    <svg className="w-5 h-5 text-yellow-500 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                  ) : (formValues.email && formValues.email.trim().length > 0 && !emailValidation.isValid) ? (
+                    <svg className="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                  ) : duplicateCheck.isDuplicate ? (
+                    <svg className="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                  ) : formValues.email && emailValidation.isValid && !duplicateCheck.isDuplicate ? (
+                    <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                  ) : (
+                    <svg
+                      className="w-5 h-5 text-gray-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                      />
+                    </svg>
+                  )}
                 </div>
               </div>
+              
+              {/* ✅ Email Validation Error */}
+              {!emailValidation.isValid && formValues.email && formValues.email.trim().length > 0 && (
+                <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <div className="flex items-start">
+                    <svg className="w-5 h-5 text-red-500 mt-0.5 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    <div>
+                      <p className="text-sm font-medium text-red-800">
+                        {emailValidation.error}
+                      </p>
+                      {emailValidation.suggestion && (
+                        <p className="text-xs text-red-600 mt-1">
+                          {emailValidation.suggestion}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* ✅ Duplicate Application Warning */}
+              {emailValidation.isValid && duplicateCheck.isDuplicate && (
+                <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <div className="flex items-start">
+                    <svg className="w-5 h-5 text-red-500 mt-0.5 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    <div>
+                      <p className="text-sm font-medium text-red-800">
+                        {duplicateCheck.duplicateType === 'phone' 
+                          ? 'A candidate with this phone number has already applied'
+                          : 'You have already applied for this position'
+                        }
+                      </p>
+                      <p className="text-xs text-red-600 mt-1">
+                        Application submitted on: {duplicateCheck.appliedDate ? new Date(duplicateCheck.appliedDate).toLocaleDateString() : 'Unknown date'}
+                      </p>
+                      <p className="text-xs text-red-600 mt-1">
+                        {duplicateCheck.duplicateType === 'phone' 
+                          ? 'Multiple applications with the same phone number are not allowed, even with different country codes.'
+                          : 'Multiple applications for the same job are not allowed. You can apply for other positions.'
+                        }
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Enhanced Phone Field */}
@@ -486,24 +728,57 @@ const HiringForm = () => {
                   value={formValues.phone}
                   onChange={handleChange}
                   required
-                  className="w-full px-4 py-4 border border-gray-200 rounded-xl focus:outline-none focus:ring-3 focus:ring-indigo-100 focus:border-indigo-400 transition-all duration-200 bg-gray-50/50 hover:bg-white text-gray-800 placeholder-gray-400"
+                  className={`w-full px-4 py-4 border rounded-xl focus:outline-none focus:ring-3 transition-all duration-200 bg-gray-50/50 hover:bg-white text-gray-800 placeholder-gray-400 ${
+                    (formValues.phone && formValues.phone.trim().length > 0 && !phoneValidation.isValid)
+                      ? 'border-red-300 focus:ring-red-100 focus:border-red-400' 
+                      : 'border-gray-200 focus:ring-indigo-100 focus:border-indigo-400'
+                  }`}
                 />
                 <div className="absolute inset-y-0 right-0 flex items-center pr-4">
-                  <svg
-                    className="w-5 h-5 text-gray-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
-                    />
-                  </svg>
+                  {(formValues.phone && formValues.phone.trim().length > 0 && !phoneValidation.isValid) ? (
+                    <svg className="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                  ) : formValues.phone && phoneValidation.isValid ? (
+                    <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                  ) : (
+                    <svg
+                      className="w-5 h-5 text-gray-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
+                      />
+                    </svg>
+                  )}
                 </div>
               </div>
+              
+              {/* ✅ Phone Validation Error */}
+              {!phoneValidation.isValid && formValues.phone && formValues.phone.trim().length > 0 && (
+                <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <div className="flex items-start">
+                    <svg className="w-5 h-5 text-red-500 mt-0.5 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    <div>
+                      <p className="text-sm font-medium text-red-800">
+                        {phoneValidation.error}
+                      </p>
+                      <p className="text-xs text-red-600 mt-1">
+                        Please enter a valid Indian mobile number (10 digits starting with 6, 7, 8, or 9)
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Enhanced Custom Questions */}
@@ -628,13 +903,31 @@ const HiringForm = () => {
             {/* Enhanced Submit Button */}
             <button
               type="submit"
-              disabled={submitting}
-              className="w-full bg-gradient-to-r from-indigo-600 to-cyan-600 text-white py-4 rounded-xl font-semibold text-lg hover:from-indigo-700 hover:to-cyan-700 focus:outline-none focus:ring-3 focus:ring-indigo-200 focus:ring-offset-2 transition-all duration-300 transform hover:scale-[1.02] hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none"
+              disabled={submitting || duplicateCheck.isDuplicate || (formValues.email && !emailValidation.isValid)}
+              className={`w-full py-4 rounded-xl font-semibold text-lg focus:outline-none focus:ring-3 focus:ring-offset-2 transition-all duration-300 transform hover:scale-[1.02] hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none ${
+                duplicateCheck.isDuplicate || (formValues.email && !emailValidation.isValid)
+                  ? 'bg-gray-400 text-white cursor-not-allowed'
+                  : 'bg-gradient-to-r from-indigo-600 to-cyan-600 text-white hover:from-indigo-700 hover:to-cyan-700 focus:ring-indigo-200'
+              }`}
             >
               {submitting ? (
                 <span className="flex items-center justify-center">
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-3"></div>
                   Submitting Application...
+                </span>
+              ) : (formValues.email && !emailValidation.isValid) ? (
+                <span className="flex items-center justify-center">
+                  <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  Invalid Email
+                </span>
+              ) : duplicateCheck.isDuplicate ? (
+                <span className="flex items-center justify-center">
+                  <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  Already Applied
                 </span>
               ) : (
                 <span className="flex items-center justify-center">
