@@ -247,6 +247,7 @@ const CandidateViewer = () => {
   const [rejectedIndex, setRejectedIndex] = useState(0);
   const [heldIndex, setHeldIndex] = useState(0);
   const [atsRejectedIndex, setAtsRejectedIndex] = useState(0);
+  const [lastAtsScoring, setLastAtsScoring] = useState(null);
   const itemsPerView = 3;
 
   // Expandable content states
@@ -276,8 +277,19 @@ const CandidateViewer = () => {
     }
   };
 
+  const fetchGlobalAtsTimestamp = async () => {
+    try {
+      const res = await axios.get(`${backendUrl}/api/form/latest-ats-timestamp`);
+      setLastAtsScoring(res.data.timestamp);
+    } catch (err) {
+      console.error("Fetch global ATS timestamp error:", err);
+      setLastAtsScoring(null);
+    }
+  };
+
   useEffect(() => {
     fetchData();
+    fetchGlobalAtsTimestamp();
   }, [job_id]);
 
   const handleStatusUpdate = async (id, status) => {
@@ -898,6 +910,50 @@ ${c.shortlisting_reason ? `• Reason: ${c.shortlisting_reason}` : ""}
             </button>
           </div>
         </div>
+
+        {/* ATS Scoring Status Stamp */}
+        {lastAtsScoring && (
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
+            <div className="px-6 py-4 bg-gradient-to-r from-green-50 to-emerald-50 border-b border-green-100">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <div className="flex items-center justify-center w-10 h-10 bg-green-100 rounded-full mr-3">
+                    <svg 
+                      className="w-5 h-5 text-green-600" 
+                      fill="currentColor" 
+                      viewBox="0 0 20 20"
+                    >
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-green-800">Last ATS Scoring Completed (Global)</h3>
+                    <p className="text-xs text-green-600">Latest cronjob execution</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-lg font-mono font-bold text-green-700">
+                    {new Date(lastAtsScoring).toLocaleString('en-IN', {
+                      year: 'numeric',
+                      month: 'short',
+                      day: '2-digit',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      second: '2-digit',
+                      timeZone: 'Asia/Kolkata'
+                    })}
+                  </div>
+                  <div className="text-xs text-green-600">
+                    ({new Date(lastAtsScoring).toLocaleDateString('en-IN', { 
+                      weekday: 'long', 
+                      timeZone: 'Asia/Kolkata' 
+                    })})
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Main Content */}
         <main className="space-y-8">
