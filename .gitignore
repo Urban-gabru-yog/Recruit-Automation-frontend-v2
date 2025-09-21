@@ -1,2 +1,29 @@
+# Dependencies
 node_modules/
+
+# Build output (Vite)
+dist/
+
+# Environment files
 .env
+.env.*
+
+# Vercel local state
+.vercel/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+
+# Editor/OS junk
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Lint/coverage caches
+.eslintcache
+coverage/

@@ -232,14 +232,16 @@ const CandidateViewer = () => {
   const [filtered, setFiltered] = useState([]);
   const [rejected, setRejected] = useState([]);
   const [held, setHeld] = useState([]);
-  const [showRejected, setShowRejected] = useState(false);
-  const [showHeld, setShowHeld] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [atsRejected, setAtsRejected] = useState([]);
-  const [showAtsRejected, setShowAtsRejected] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(null);
   const [updatingInterview, setUpdatingInterview] = useState(null);
+  // Tabs
+  const [activeTab, setActiveTab] = useState("pending");
+  // Search & Sort (per active tab)
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortOption, setSortOption] = useState("ats_desc"); // ats_desc | ats_asc | name_asc | name_desc
 
   // Pagination states - now for carousel
   const [filteredIndex, setFilteredIndex] = useState(0);
@@ -248,7 +250,7 @@ const CandidateViewer = () => {
   const [heldIndex, setHeldIndex] = useState(0);
   const [atsRejectedIndex, setAtsRejectedIndex] = useState(0);
   const [lastAtsScoring, setLastAtsScoring] = useState(null);
-  const itemsPerView = 3;
+  const [itemsPerView, setItemsPerView] = useState(3);
 
   // Expandable content states
   const [expandedCards, setExpandedCards] = useState(new Set());
@@ -291,6 +293,30 @@ const CandidateViewer = () => {
     fetchData();
     fetchGlobalAtsTimestamp();
   }, [job_id]);
+
+  // Responsive items per view: 1 (<640px), 2 (>=640px && <1024px), 3 (>=1024px)
+  useEffect(() => {
+    const compute = () => {
+      const w = window.innerWidth;
+      if (w < 640) return 1;
+      if (w < 1024) return 2;
+      return 3; // desktop and above
+    };
+    const update = () => setItemsPerView(compute());
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
+
+  // Clamp carousel indices whenever layout or lists change
+  useEffect(() => {
+    const clamp = (idx, len) => Math.min(Math.max(0, idx), Math.max(0, len - itemsPerView));
+    setFilteredIndex((i) => clamp(i, filtered.length));
+    setShortlistedIndex((i) => clamp(i, shortlisted.length));
+    setHeldIndex((i) => clamp(i, held.length));
+    setRejectedIndex((i) => clamp(i, rejected.length));
+    setAtsRejectedIndex((i) => clamp(i, atsRejected.length));
+  }, [itemsPerView, filtered.length, shortlisted.length, held.length, rejected.length, atsRejected.length]);
 
   const handleStatusUpdate = async (id, status) => {
     if (
@@ -451,67 +477,69 @@ const CandidateViewer = () => {
           </div>
         </div>
 
-        {/* Card Body */}
-        <div className="p-4 space-y-4">
-          {/* Summary Section */}
-          <div>
-            <p className="text-sm font-medium text-gray-700 mb-2">Summary</p>
-            <div className="text-sm text-gray-600 leading-relaxed">
-              {c.summary ? (
-                <p className="break-words">
-                  {isExpanded ? c.summary : truncateText(c.summary, 120)}
-                </p>
-              ) : (
-                <span className="italic text-gray-400">Not provided</span>
-              )}
+        {/* Card Body (fixed height for consistent comparison) */}
+        <div className="p-4 space-y-3">
+          <div className={`${isExpanded ? 'max-h-64 overflow-auto pr-1' : 'max-h-48 overflow-hidden'} space-y-4`}>
+            {/* Summary Section */}
+            <div>
+              <p className="text-sm font-medium text-gray-700 mb-2">Summary</p>
+              <div className="text-sm text-gray-600 leading-relaxed">
+                {c.summary ? (
+                  <p className="break-words">
+                    {isExpanded ? c.summary : truncateText(c.summary, 120)}
+                  </p>
+                ) : (
+                  <span className="italic text-gray-400">Not provided</span>
+                )}
+              </div>
             </div>
+
+            {/* Shortlisting Reason */}
+            {c.shortlisting_reason && (
+              <div>
+                <p className="text-sm font-medium text-gray-700 mb-2">Reason</p>
+
+                <div className="text-sm text-gray-600 bg-green-50 p-3 rounded-md border-l-4 border-green-400 space-y-2">
+                  {(() => {
+                    const sentences = c.shortlisting_reason.split(". ");
+                    const strength = sentences[0]?.trim();
+                    const weakness = sentences.slice(1).join(". ")?.trim();
+
+                    return (
+                      <>
+                        {strength && (
+                          <div>
+                            <strong className="text-green-700">Strength:</strong>{" "}
+                            {strength}.
+                          </div>
+                        )}
+                        {weakness && (
+                          <div>
+                            <strong className="text-red-700">Weakness:</strong>{" "}
+                            {weakness}
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+            )}
+
+            {/* Custom Answers */}
+            {c.custom_answers && Object.keys(c.custom_answers).length > 0 && (
+              <div>
+                <p className="text-sm font-medium text-gray-700 mb-2">
+                  Custom Answers
+                </p>
+                <div className="bg-gray-50 p-3 rounded-md">
+                  {renderCustomAnswers(c.custom_answers, isExpanded)}
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Shortlisting Reason */}
-          {c.shortlisting_reason && (
-            <div>
-              <p className="text-sm font-medium text-gray-700 mb-2">Reason</p>
-
-              <div className="text-sm text-gray-600 bg-green-50 p-3 rounded-md border-l-4 border-green-400 space-y-2">
-                {(() => {
-                  const sentences = c.shortlisting_reason.split(". ");
-                  const strength = sentences[0]?.trim();
-                  const weakness = sentences.slice(1).join(". ")?.trim();
-
-                  return (
-                    <>
-                      {strength && (
-                        <div>
-                          <strong className="text-green-700">Strength:</strong>{" "}
-                          {strength}.
-                        </div>
-                      )}
-                      {weakness && (
-                        <div>
-                          <strong className="text-red-700">Weakness:</strong>{" "}
-                          {weakness}
-                        </div>
-                      )}
-                    </>
-                  );
-                })()}
-              </div>
-            </div>
-          )}
-
-          {/* Custom Answers */}
-          {c.custom_answers && Object.keys(c.custom_answers).length > 0 && (
-            <div>
-              <p className="text-sm font-medium text-gray-700 mb-2">
-                Custom Answers
-              </p>
-              <div className="bg-gray-50 p-3 rounded-md">
-                {renderCustomAnswers(c.custom_answers, isExpanded)}
-              </div>
-            </div>
-          )}
-
-          {/* Expand/Collapse Button */}
+          {/* Expand/Collapse Button (always visible) */}
           {(c.summary?.length > 120 ||
             c.shortlisting_reason?.length > 120 ||
             (c.custom_answers && Object.keys(c.custom_answers).length > 2)) && (
@@ -722,10 +750,9 @@ const CandidateViewer = () => {
   ) => {
     const startIndex = currentIndex;
     const endIndex = startIndex + itemsPerView;
-    const visibleItems = list.slice(startIndex, endIndex);
 
     return (
-      <section className="mb-8" id={id}>
+      <section className="mb-8" id={id} role="tabpanel" aria-labelledby={`${id}-tab`}>
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
             <div className="flex items-center justify-between">
@@ -735,7 +762,7 @@ const CandidateViewer = () => {
                   {list.length} candidates
                 </span>
                 {list.length > itemsPerView && (
-                  <span className="text-sm text-gray-500">
+                  <span className="hidden sm:inline text-sm text-gray-500">
                     Showing {startIndex + 1}-{Math.min(endIndex, list.length)} of {list.length}
                   </span>
                 )}
@@ -757,11 +784,37 @@ const CandidateViewer = () => {
               <>
                 {/* Carousel Container */}
                 <div className="relative overflow-hidden">
+                  {/* Mobile overlay chevrons */}
+                  {setCurrentIndex && list.length > itemsPerView && (
+                    <>
+                      <button
+                        type="button"
+                        className="sm:hidden absolute left-1 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-white/90 border border-gray-200 shadow hover:bg-white"
+                        aria-label="Previous candidates"
+                        onClick={() => setCurrentIndex(Math.max(0, currentIndex - 1))}
+                        disabled={currentIndex === 0}
+                      >
+                        <ChevronLeftIcon className="w-5 h-5 text-gray-700" />
+                      </button>
+                      <button
+                        type="button"
+                        className="sm:hidden absolute right-1 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-white/90 border border-gray-200 shadow hover:bg-white"
+                        aria-label="Next candidates"
+                        onClick={() => {
+                          const maxIndex = Math.max(0, list.length - itemsPerView);
+                          setCurrentIndex(Math.min(maxIndex, currentIndex + 1));
+                        }}
+                        disabled={currentIndex >= Math.max(0, list.length - itemsPerView)}
+                      >
+                        <ChevronRightIcon className="w-5 h-5 text-gray-700" />
+                      </button>
+                    </>
+                  )}
                   <div 
                     className="flex transition-transform duration-300 ease-in-out"
                     style={{ transform: `translateX(-${(currentIndex * 100) / itemsPerView}%)` }}
                   >
-                    {list.map((candidate, index) => (
+                    {list.map((candidate) => (
                       <div 
                         key={candidate.id} 
                         className="flex-shrink-0 px-3"
@@ -775,9 +828,19 @@ const CandidateViewer = () => {
                   </div>
                 </div>
                 
+                {/* Mobile showing range below carousel */}
+                {list.length > itemsPerView && (
+                  <div className="sm:hidden text-center text-xs text-gray-500 mt-3">
+                    Showing {startIndex + 1}-{Math.min(endIndex, list.length)} of {list.length}
+                  </div>
+                )}
+
                 {/* Carousel Navigation */}
-                {setCurrentIndex &&
-                  renderCarouselNavigation(currentIndex, setCurrentIndex, list.length)}
+                {setCurrentIndex && (
+                  <div className="hidden sm:block">
+                    {renderCarouselNavigation(currentIndex, setCurrentIndex, list.length)}
+                  </div>
+                )}
               </>
             )}
           </div>
@@ -785,6 +848,46 @@ const CandidateViewer = () => {
       </section>
     );
   };
+
+  // Apply search and sort to a list for current tab view
+  const applySearchSort = (list) => {
+    let result = Array.isArray(list) ? [...list] : [];
+    const q = searchQuery.trim().toLowerCase();
+    if (q) {
+      result = result.filter((c) => {
+        const name = (c.name || "").toLowerCase();
+        const email = (c.email || "").toLowerCase();
+        return name.includes(q) || email.includes(q);
+      });
+    }
+    const scoreVal = (c) => (typeof c.ats_score === "number" ? c.ats_score : -1);
+    const nameVal = (c) => (c.name || "").toLowerCase();
+    switch (sortOption) {
+      case "ats_asc":
+        result.sort((a, b) => scoreVal(a) - scoreVal(b));
+        break;
+      case "name_asc":
+        result.sort((a, b) => nameVal(a).localeCompare(nameVal(b)));
+        break;
+      case "name_desc":
+        result.sort((a, b) => nameVal(b).localeCompare(nameVal(a)));
+        break;
+      case "ats_desc":
+      default:
+        result.sort((a, b) => scoreVal(b) - scoreVal(a));
+        break;
+    }
+    return result;
+  };
+
+  // Reset carousels when search/sort change to avoid blank views
+  useEffect(() => {
+    setFilteredIndex(0);
+    setShortlistedIndex(0);
+    setHeldIndex(0);
+    setRejectedIndex(0);
+    setAtsRejectedIndex(0);
+  }, [searchQuery, sortOption]);
 
   const handleOpenMail = () => {
     if (!shortlisted.length) {
@@ -855,149 +958,155 @@ ${c.shortlisting_reason ? `• Reason: ${c.shortlisting_reason}` : ""}
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Header */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-8">
-          <div className="px-6 py-8 text-center">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              Candidates for: {job?.position}
-            </h1>
-            <p className="text-lg text-gray-600 mb-8">Team: {job?.team}</p>
-
-            {/* Navigation */}
-            <div className="flex flex-wrap justify-center gap-2 mb-8">
-              <a
-                href="#pending-candidates"
-                className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors"
-              >
-                Pending ({filtered.length})
-              </a>
-              <a
-                href="#hr-shortlisted"
-                className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors"
-              >
-                Shortlisted ({shortlisted.length})
-              </a>
-              <button
-                onClick={() => setShowHeld(!showHeld)}
-                className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium text-orange-700 bg-orange-100 hover:bg-orange-200 transition-colors"
-              >
-                {showHeld ? "Hide" : "View"} On Hold ({held.length})
-              </button>
-              <button
-                onClick={() => setShowRejected(!showRejected)}
-                className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors"
-              >
-                {showRejected ? "Hide" : "View"} Rejected ({rejected.length})
-              </button>
-              <button
-                onClick={() => setShowAtsRejected(!showAtsRejected)}
-                className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors"
-              >
-                {showAtsRejected ? "Hide" : "View"} ATS Rejected (
-                {atsRejected.length})
-              </button>
-            </div>
-
-            {/* Email Button */}
-            <button
-              className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-lg shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-              onClick={handleOpenMail}
-              disabled={shortlisted.length === 0}
-            >
-              <EnvelopeIcon className="mr-3 h-5 w-5" />
-              Email Shortlisted to Team Leader
-            </button>
-          </div>
-        </div>
-
-        {/* ATS Scoring Status Stamp */}
-        {lastAtsScoring && (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
-            <div className="px-6 py-4 bg-gradient-to-r from-green-50 to-emerald-50 border-b border-green-100">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <div className="flex items-center justify-center w-10 h-10 bg-green-100 rounded-full mr-3">
-                    <svg 
-                      className="w-5 h-5 text-green-600" 
-                      fill="currentColor" 
-                      viewBox="0 0 20 20"
-                    >
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-semibold text-green-800">Last ATS Scoring Completed (Global)</h3>
-                    <p className="text-xs text-green-600">Latest cronjob execution</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-lg font-mono font-bold text-green-700">
-                    {new Date(lastAtsScoring).toLocaleString('en-IN', {
-                      year: 'numeric',
-                      month: 'short',
-                      day: '2-digit',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                      second: '2-digit',
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
+          <div className="px-6 py-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="text-center sm:text-left">
+                <h1 className="text-2xl font-bold text-gray-900 leading-tight">
+                  {job?.position}
+                </h1>
+                <p className="text-sm text-gray-600">Team: {job?.team}</p>
+              </div>
+              {/* Cron badge */}
+              {lastAtsScoring && (
+                <div className="flex items-center justify-center sm:justify-end">
+                  <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-50 text-green-700 border border-green-200 text-xs">
+                    <ClockIcon className="w-4 h-4" />
+                    Last ATS: {new Date(lastAtsScoring).toLocaleString('en-IN', {
+                      month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit',
                       timeZone: 'Asia/Kolkata'
                     })}
-                  </div>
-                  <div className="text-xs text-green-600">
-                    ({new Date(lastAtsScoring).toLocaleDateString('en-IN', { 
-                      weekday: 'long', 
-                      timeZone: 'Asia/Kolkata' 
-                    })})
-                  </div>
+                  </span>
                 </div>
+              )}
+            </div>
+            {/* Tabs */}
+            <div role="tablist" aria-label="Candidate categories" className="mt-3 overflow-x-auto relative">
+              {/* Right-edge gradient scroll hint (mobile only) */}
+              <div className="pointer-events-none absolute right-0 top-0 h-full w-6 bg-gradient-to-l from-white to-transparent z-10 sm:hidden" />
+              <div className="inline-flex gap-2 whitespace-nowrap pr-2">
+                {[
+                  { key: "pending", label: "Pending", count: filtered.length, target: "pending-candidates" },
+                  { key: "shortlisted", label: "Shortlisted", count: shortlisted.length, target: "hr-shortlisted" },
+                  { key: "hold", label: "On Hold", count: held.length, target: "candidates-on-hold" },
+                  { key: "rejected", label: "Rejected", count: rejected.length, target: "hr-rejected" },
+                  { key: "atsRejected", label: "ATS Rejected", count: atsRejected.length, target: "ats-rejected" },
+                ].map((tab) => (
+                  <button
+                    key={tab.key}
+                    id={`${tab.target}-tab`}
+                    role="tab"
+                    aria-selected={activeTab === tab.key}
+                    aria-controls={tab.target}
+                    onClick={() => setActiveTab(tab.key)}
+                    className={
+                      `inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ` +
+                      (activeTab === tab.key
+                        ? "text-white bg-blue-600"
+                        : tab.key === "hold"
+                        ? "text-orange-700 bg-orange-100 hover:bg-orange-200"
+                        : "text-gray-700 bg-gray-100 hover:bg-gray-200")
+                    }
+                  >
+                    {tab.label} ({tab.count})
+                  </button>
+                ))}
               </div>
             </div>
           </div>
-        )}
+        </div>
 
-        {/* Main Content */}
+        {/* Removed standalone ATS timestamp card; now shown as header badge */}
+
+        {/* Controls for the active tab */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
+          <div className="px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="w-full sm:w-auto">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search name or email..."
+                className="w-full sm:w-80 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                aria-label="Search candidates by name or email"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <label htmlFor="sort-option" className="text-sm text-gray-700">Sort by:</label>
+              <select
+                id="sort-option"
+                value={sortOption}
+                onChange={(e) => setSortOption(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              >
+                <option value="ats_desc">ATS score: High → Low</option>
+                <option value="ats_asc">ATS score: Low → High</option>
+                <option value="name_asc">Name: A → Z</option>
+                <option value="name_desc">Name: Z → A</option>
+              </select>
+            </div>
+            {activeTab === "shortlisted" && (
+              <div className="mt-2 sm:mt-0 sm:ml-auto">
+                <button
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={handleOpenMail}
+                  disabled={shortlisted.length === 0}
+                >
+                  <EnvelopeIcon className="mr-2 h-4 w-4" />
+                  Email Shortlisted to TL
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Main Content - show only active tab */}
         <main className="space-y-8">
-          {renderSection(
-            "Pending Review (ATS Shortlisted)",
-            filtered,
-            true,
-            "pending-candidates",
-            filteredIndex,
-            setFilteredIndex
-          )}
-          {renderSection(
-            "HR Shortlisted Candidates",
-            shortlisted,
-            false,
-            "hr-shortlisted",
-            shortlistedIndex,
-            setShortlistedIndex
-          )}
-          {showHeld &&
+          {activeTab === "pending" &&
+            renderSection(
+              "Pending Review (ATS Shortlisted)",
+              applySearchSort(filtered),
+              true,
+              "pending-candidates",
+              filteredIndex,
+              setFilteredIndex
+            )}
+          {activeTab === "shortlisted" &&
+            renderSection(
+              "HR Shortlisted Candidates",
+              applySearchSort(shortlisted),
+              false,
+              "hr-shortlisted",
+              shortlistedIndex,
+              setShortlistedIndex
+            )}
+          {activeTab === "hold" &&
             renderSection(
               "Candidates On Hold",
-              held,
+              applySearchSort(held),
               true,
               "candidates-on-hold",
               heldIndex,
               setHeldIndex,
               "hold"
             )}
-          {showRejected &&
+          {activeTab === "rejected" &&
             renderSection(
               "HR Rejected Candidates",
-              rejected,
+              applySearchSort(rejected),
               false,
-              null,
+              "hr-rejected",
               rejectedIndex,
               setRejectedIndex
             )}
-          {showAtsRejected &&
+          {activeTab === "atsRejected" &&
             renderSection(
               "ATS Rejected Candidates",
-              atsRejected,
+              applySearchSort(atsRejected),
               true,
-              null,
+              "ats-rejected",
               atsRejectedIndex,
               setAtsRejectedIndex
             )}
@@ -1008,502 +1117,3 @@ ${c.shortlisting_reason ? `• Reason: ${c.shortlisting_reason}` : ""}
 };
 
 export default CandidateViewer;
-
-// // CandidateViewer.jsx
-// import React, { useEffect, useState } from "react";
-// import axios from "axios";
-// import { useParams } from "react-router-dom";
-// const backendUrl = import.meta.env.VITE_BACKEND_URL;
-
-// const CandidateViewer = () => {
-//   const { job_id } = useParams();
-//   const [job, setJob] = useState(null);
-//   const [shortlisted, setShortlisted] = useState([]);
-//   const [filtered, setFiltered] = useState([]);
-//   const [rejected, setRejected] = useState([]);
-//   const [showRejected, setShowRejected] = useState(false);
-//   const [loading, setLoading] = useState(true);
-//   const [error, setError] = useState("");
-//   const [atsRejected, setAtsRejected] = useState([]);
-//   const [showAtsRejected, setShowAtsRejected] = useState(false);
-
-//   const fetchData = async () => {
-//     setLoading(true);
-//     setError("");
-//     try {
-//       const res = await axios.get(
-//         `${backendUrl}/api/jobs/${job_id}`
-//       );
-//       setJob(res.data.job);
-//       const candidates = res.data.candidates || [];
-//       // Candidates with 'shortlisted' status from ATS, but not yet reviewed by HR
-//       setFiltered(
-//         candidates.filter((c) => c.status === "shortlisted" && !c.hr_status)
-//       );
-//       // Candidates HR has officially 'shortlisted'
-//       setShortlisted(candidates.filter((c) => c.hr_status === "shortlisted"));
-//       // Candidates HR has officially 'rejected'
-//       setRejected(candidates.filter((c) => c.hr_status === "rejected"));
-
-//       setAtsRejected(
-//         candidates.filter((c) => (c.ats_score ?? 100) < 70 && !c.hr_status)
-//       );
-//     } catch (err) {
-//       setError("Failed to fetch candidate data. Please try again.");
-//       console.error("Fetch candidates error:", err);
-//     } finally {
-//       setLoading(false);
-//     }
-//   };
-
-//   useEffect(() => {
-//     fetchData();
-//   }, [job_id]);
-
-//   const handleStatusUpdate = async (id, status) => {
-//     if (
-//       !window.confirm(
-//         `Are you sure you want to mark this candidate as ${status.toUpperCase()}?`
-//       )
-//     ) {
-//       return;
-//     }
-//     setError("");
-//     try {
-//       await axios.post(
-//         `${backendUrl}/api/form/update-status/${id}`,
-//         { hr_status: status }
-//       );
-//       alert(
-//         `Candidate marked as ${
-//           status.charAt(0).toUpperCase() + status.slice(1)
-//         }.`
-//       );
-//       fetchData(); // Refresh data to update lists
-//     } catch (err) {
-//       setError("Failed to update candidate status. Please try again.");
-//       console.error("Status update failed:", err);
-//     }
-//   };
-
-//   const renderCustomAnswers = (answers) => {
-//     if (!answers || Object.keys(answers).length === 0) {
-//       return <span className="text-gray-500">N/A</span>;
-//     }
-//     return (
-//       <div className="space-y-1">
-//         {Object.entries(answers).map(([q, a]) => (
-//           <div key={q} className="text-sm">
-//             <strong className="text-gray-700">{q}</strong>:{" "}
-//             <span className="text-gray-600">{a}</span>
-//           </div>
-//         ))}
-//       </div>
-//     );
-//   };
-
-//   const renderTable = (title, list, showActions = false) => (
-//     <div className="mb-8 bg-white/70 backdrop-blur-md p-6 rounded-xl shadow-lg border border-gray-100">
-//       <h3 className="text-xl font-semibold text-gray-800 mb-4">{title}</h3>
-//       {list.length === 0 ? (
-//         <p className="text-center text-gray-600 py-4">
-//           No candidates in this list.
-//         </p>
-//       ) : (
-//         <div className="overflow-x-auto">
-//           <table className="min-w-full divide-y divide-gray-200 border border-gray-200 rounded-lg overflow-hidden">
-//             <thead className="bg-gradient-to-r from-blue-50 to-purple-50">
-//               <tr>
-//                 <th
-//                   scope="col"
-//                   className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider"
-//                 >
-//                   Name
-//                 </th>
-//                 <th
-//                   scope="col"
-//                   className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider"
-//                 >
-//                   Email
-//                 </th>
-//                 <th
-//                   scope="col"
-//                   className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider"
-//                 >
-//                   Phone
-//                 </th>
-//                 <th
-//                   scope="col"
-//                   className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider"
-//                 >
-//                   Score
-//                 </th>
-//                 <th
-//                   scope="col"
-//                   className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider"
-//                 >
-//                   Resume
-//                 </th>
-//                 <th
-//                   scope="col"
-//                   className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider"
-//                 >
-//                   Summary
-//                 </th>
-//                 <th
-//                   scope="col"
-//                   className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider"
-//                 >
-//                   Custom Answers
-//                 </th>
-//                 <th
-//                   scope="col"
-//                   className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider"
-//                 >
-//                   Why Shortlisted
-//                 </th>
-//                 {showActions && (
-//                   <th
-//                     scope="col"
-//                     className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider"
-//                   >
-//                     Actions
-//                   </th>
-//                 )}
-//               </tr>
-//             </thead>
-//             <tbody className="bg-white divide-y divide-gray-200">
-//               {list.map((c) => (
-//                 <tr key={c.id} className="hover:bg-gray-50 transition-colors">
-//                   <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
-//                     {c.name}
-//                   </td>
-//                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-//                     {c.email}
-//                   </td>
-//                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-//                     {c.phone || <span className="text-gray-500">N/A</span>}
-//                   </td>
-//                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-//                     {c.ats_score || <span className="text-gray-500">N/A</span>}
-//                   </td>
-//                   <td className="px-4 py-3 whitespace-nowrap text-sm">
-//                     {c.resume_url ? (
-//                       <a
-//                         className="text-blue-600 hover:text-blue-800 underline transition-colors"
-//                         href={c.resume_url}
-//                         target="_blank"
-//                         rel="noreferrer"
-//                       >
-//                         View Resume
-//                       </a>
-//                     ) : (
-//                       <span className="text-gray-500">N/A</span>
-//                     )}
-//                   </td>
-//                   <td className="px-4 py-3 text-sm text-gray-700 max-w-xs overflow-hidden text-ellipsis">
-//                     {c.summary || <span className="text-gray-500">N/A</span>}
-//                   </td>
-//                   <td className="px-4 py-3 text-sm text-gray-700">
-//                     {renderCustomAnswers(c.custom_answers)}
-//                   </td>
-//                   <td className="px-4 py-3 text-sm text-gray-700 max-w-xs overflow-hidden text-ellipsis">
-//                     {c.shortlisting_reason || (
-//                       <span className="text-gray-500">—</span>
-//                     )}
-//                   </td>
-//                   {showActions && (
-//                     <td className="px-4 py-3 whitespace-nowrap text-left text-sm font-medium space-x-2">
-//                       <button
-//                         className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
-//                         onClick={() => handleStatusUpdate(c.id, "shortlisted")}
-//                         title="Shortlist Candidate"
-//                       >
-//                         <svg
-//                           className="-ml-0.5 mr-1 h-4 w-4"
-//                           fill="currentColor"
-//                           viewBox="0 0 20 20"
-//                         >
-//                           <path
-//                             fillRule="evenodd"
-//                             d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-//                             clipRule="evenodd"
-//                           ></path>
-//                         </svg>
-//                         Shortlist
-//                       </button>
-//                       <button
-//                         className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
-//                         onClick={() => handleStatusUpdate(c.id, "rejected")}
-//                         title="Reject Candidate"
-//                       >
-//                         <svg
-//                           className="-ml-0.5 mr-1 h-4 w-4"
-//                           fill="currentColor"
-//                           viewBox="0 0 20 20"
-//                         >
-//                           <path
-//                             fillRule="evenodd"
-//                             d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-//                             clipRule="evenodd"
-//                           ></path>
-//                         </svg>
-//                         Reject
-//                       </button>
-//                     </td>
-//                   )}
-//                 </tr>
-//               ))}
-//             </tbody>
-//           </table>
-//         </div>
-//       )}
-//     </div>
-//   );
-
-//   const handleOpenMail = () => {
-//     if (!shortlisted.length) {
-//       alert("No HR Shortlisted candidates to email.");
-//       return;
-//     }
-//     if (!job?.team_lead_email) {
-//       alert("Team Lead email not available for this job.");
-//       return;
-//     }
-
-//     const subject = `HR Shortlisted Candidates: ${job.position} | ${job.team}`;
-//     const to = job.team_lead_email;
-//     const body = shortlisted
-//       .map(
-//         (c, i) => `
-// ${i + 1}. ${c.name}
-// • Email: ${c.email}
-// • Score: ${c.ats_score || "N/A"}
-// • Summary: ${c.summary || "N/A"}
-// • Resume: ${c.resume_url || "N/A"}
-// ${c.shortlisting_reason ? `• Reason: ${c.shortlisting_reason}` : ""}
-// ------------------------------`
-//       )
-//       .join("\n");
-//     const mailtoLink = `mailto:${encodeURIComponent(
-//       to
-//     )}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-//     window.open(mailtoLink);
-//   };
-
-//   if (loading && !job) {
-//     return (
-//       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 px-4">
-//         <div className="text-center text-gray-700 font-semibold text-xl">
-//           <svg
-//             className="animate-spin h-8 w-8 text-blue-600 mx-auto mb-4"
-//             fill="none"
-//             viewBox="0 0 24 24"
-//           >
-//             <circle
-//               className="opacity-25"
-//               cx="12"
-//               cy="12"
-//               r="10"
-//               stroke="currentColor"
-//               strokeWidth="4"
-//             ></circle>
-//             <path
-//               className="opacity-75"
-//               fill="currentColor"
-//               d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-//             ></path>
-//           </svg>
-//           Loading Candidates...
-//         </div>
-//         {/* Background decoration */}
-//         <div className="absolute inset-0 overflow-hidden -z-10">
-//           <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob"></div>
-//           <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-2000"></div>
-//           <div className="absolute top-40 left-40 w-80 h-80 bg-pink-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-4000"></div>
-//         </div>
-//       </div>
-//     );
-//   }
-
-//   if (error) {
-//     return (
-//       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 px-4">
-//         <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-lg flex items-center shadow-md">
-//           <svg className="w-6 h-6 mr-3" fill="currentColor" viewBox="0 0 20 20">
-//             <path
-//               fillRule="evenodd"
-//               d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
-//               clipRule="evenodd"
-//             />
-//           </svg>
-//           <span className="font-medium">{error}</span>
-//         </div>
-//         {/* Background decoration */}
-//         <div className="absolute inset-0 overflow-hidden -z-10">
-//           <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob"></div>
-//           <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-2000"></div>
-//           <div className="absolute top-40 left-40 w-80 h-80 bg-pink-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-4000"></div>
-//         </div>
-//       </div>
-//     );
-//   }
-
-//   return (
-//     <div className="min-h-screen flex flex-col items-center bg-gradient-to-br from-blue-50 via-white to-purple-50 px-4 py-10">
-//       {/* Background decoration */}
-//       <div className="absolute inset-0 overflow-hidden -z-10">
-//         <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob"></div>
-//         <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-2000"></div>
-//         <div className="absolute top-40 left-40 w-80 h-80 bg-pink-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-4000"></div>
-//       </div>
-
-//       <div className="relative max-w-7xl w-full">
-//         <div className="bg-white/80 backdrop-blur-lg p-8 rounded-2xl shadow-xl border border-gray-100 mb-10">
-//           <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center">
-//             Candidates for: {job?.position} ({job?.team})
-//           </h2>
-
-//           <div className="flex flex-wrap justify-center gap-4 mb-8">
-//             <button
-//               className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-lg shadow-sm text-white bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all duration-200 transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
-//               onClick={handleOpenMail}
-//               disabled={shortlisted.length === 0}
-//             >
-//               <svg
-//                 className="-ml-1 mr-3 h-5 w-5"
-//                 fill="none"
-//                 stroke="currentColor"
-//                 viewBox="0 0 24 24"
-//                 xmlns="http://www.w3.org/2000/svg"
-//               >
-//                 <path
-//                   strokeLinecap="round"
-//                   strokeLinejoin="round"
-//                   strokeWidth="2"
-//                   d="M8 4H6a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-2m-4-1v8m0-8V4m0 8h.01M12 4l.707.707A1 1 0 0112.707 6H12v-.293l-.707.707M7 8h10a2 2 0 012 2v6a2 2 0 01-2 2H7a2 2 0 01-2-2v-6a2 2 0 012-2z"
-//                 ></path>
-//               </svg>
-//               Email Shortlisted to Team Leader
-//             </button>
-//           </div>
-//         </div>
-
-//         {renderTable(
-//           "Filtered Candidates (ATS Shortlisted - HR Review Pending)",
-//           filtered,
-//           true
-//         )}
-//         {renderTable("HR Shortlisted Candidates", shortlisted)}
-
-//         <div className="flex justify-center mb-8">
-//           <button
-//             className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-lg shadow-sm text-gray-700 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-300 transition-all duration-200 transform hover:scale-[1.02]"
-//             onClick={() => setShowRejected(!showRejected)}
-//           >
-//             {showRejected ? (
-//               <>
-//                 <svg
-//                   className="-ml-1 mr-3 h-5 w-5"
-//                   fill="none"
-//                   stroke="currentColor"
-//                   viewBox="0 0 24 24"
-//                   xmlns="http://www.w3.org/2000/svg"
-//                 >
-//                   <path
-//                     strokeLinecap="round"
-//                     strokeLinejoin="round"
-//                     strokeWidth="2"
-//                     d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
-//                   ></path>
-//                 </svg>
-//                 Hide Rejected Candidates
-//               </>
-//             ) : (
-//               <>
-//                 <svg
-//                   className="-ml-1 mr-3 h-5 w-5"
-//                   fill="none"
-//                   stroke="currentColor"
-//                   viewBox="0 0 24 24"
-//                   xmlns="http://www.w3.org/2000/svg"
-//                 >
-//                   <path
-//                     strokeLinecap="round"
-//                     strokeLinejoin="round"
-//                     strokeWidth="2"
-//                     d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-//                   ></path>
-//                   <path
-//                     strokeLinecap="round"
-//                     strokeLinejoin="round"
-//                     strokeWidth="2"
-//                     d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-//                   ></path>
-//                 </svg>
-//                 View Rejected Candidates ({rejected.length})
-//               </>
-//             )}
-//           </button>
-//         </div>
-//         {showRejected && renderTable("HR Rejected Candidates", rejected)}
-
-//         <div className="flex justify-center mb-8">
-//           <button
-//             className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-lg shadow-sm text-gray-700 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-300 transition-all duration-200 transform hover:scale-[1.02]"
-//             onClick={() => setShowAtsRejected(!showAtsRejected)}
-//           >
-//             {showAtsRejected ? (
-//               <>
-//                 <svg
-//                   className="-ml-1 mr-3 h-5 w-5"
-//                   fill="none"
-//                   stroke="currentColor"
-//                   viewBox="0 0 24 24"
-//                 >
-//                   <path
-//                     strokeLinecap="round"
-//                     strokeLinejoin="round"
-//                     strokeWidth="2"
-//                     d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7..."
-//                   />
-//                 </svg>
-//                 Hide ATS Rejected Candidates
-//               </>
-//             ) : (
-//               <>
-//                 <svg
-//                   className="-ml-1 mr-3 h-5 w-5"
-//                   fill="none"
-//                   stroke="currentColor"
-//                   viewBox="0 0 24 24"
-//                 >
-//                   <path
-//                     strokeLinecap="round"
-//                     strokeLinejoin="round"
-//                     strokeWidth="2"
-//                     d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-//                   />
-//                   <path
-//                     strokeLinecap="round"
-//                     strokeLinejoin="round"
-//                     strokeWidth="2"
-//                     d="M2.458 12C3.732 7.943 7.523 5 12 5..."
-//                   />
-//                 </svg>
-//                 View ATS Rejected Candidates ({atsRejected.length})
-//               </>
-//             )}
-//           </button>
-//         </div>
-//         {showAtsRejected && renderTable("ATS Rejected Candidates (Score < 70)", atsRejected)}
-
-//       </div>
-
-//       {/* Custom styles for animations */}
-//       <style> ` ` </style>
-//     </div>
-//   );
-// };
-
-// export default CandidateViewer;
