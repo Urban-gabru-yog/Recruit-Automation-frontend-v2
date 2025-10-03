@@ -229,12 +229,14 @@ const CandidateViewer = () => {
   const { job_id } = useParams();
   const [job, setJob] = useState(null);
   const [shortlisted, setShortlisted] = useState([]);
+  const [selectedCandidates, setSelectedCandidates] = useState([]);
   const [filtered, setFiltered] = useState([]);
   const [rejected, setRejected] = useState([]);
   const [held, setHeld] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [atsRejected, setAtsRejected] = useState([]);
+  const [selectedIndex, setSelectedIndex] = useState(0);
   const [updatingStatus, setUpdatingStatus] = useState(null);
   const [updatingInterview, setUpdatingInterview] = useState(null);
   // Tabs
@@ -265,7 +267,11 @@ const CandidateViewer = () => {
       setFiltered(
         candidates.filter((c) => c.status === "shortlisted" && !c.hr_status)
       );
-      setShortlisted(candidates.filter((c) => c.hr_status === "shortlisted"));
+      // Exclude candidates already marked 'selected' from the HR Shortlisted list
+      setShortlisted(
+        candidates.filter((c) => c.hr_status === "shortlisted" && c.interview_status !== "selected")
+      );
+      setSelectedCandidates(candidates.filter((c) => c.interview_status === "selected"));
       setRejected(candidates.filter((c) => c.hr_status === "rejected"));
       setHeld(candidates.filter((c) => c.hr_status === "hold"));
       setAtsRejected(
@@ -313,6 +319,7 @@ const CandidateViewer = () => {
     const clamp = (idx, len) => Math.min(Math.max(0, idx), Math.max(0, len - itemsPerView));
     setFilteredIndex((i) => clamp(i, filtered.length));
     setShortlistedIndex((i) => clamp(i, shortlisted.length));
+    setSelectedIndex((i) => clamp(i, selectedCandidates.length));
     setHeldIndex((i) => clamp(i, held.length));
     setRejectedIndex((i) => clamp(i, rejected.length));
     setAtsRejectedIndex((i) => clamp(i, atsRejected.length));
@@ -347,7 +354,14 @@ const CandidateViewer = () => {
   };
 
   const handleInterviewStatusUpdate = async (id, interviewStatus, candidateName) => {
-    const statusText = interviewStatus === "scheduled" ? "Interview Scheduled" : "Interview Taken";
+    // Map the interviewStatus to friendly text for confirmation and alerts
+    const statusTextMap = {
+      scheduled: "Interview Scheduled",
+      taken: "Interview Taken",
+      selected: "Selected",
+    };
+    const statusText = statusTextMap[interviewStatus] || interviewStatus;
+
     if (
       !window.confirm(
         `Mark "${candidateName}" as "${statusText}"?`
@@ -452,6 +466,12 @@ const CandidateViewer = () => {
                   <span className="inline-flex items-center text-xs font-semibold bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
                     <CheckBadgeIcon className="w-3 h-3 mr-1" />
                     Interview Taken
+                  </span>
+                )}
+                {c.interview_status === "selected" && (
+                  <span className="inline-flex items-center text-xs font-semibold bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full">
+                    <CheckCircleIcon className="w-3 h-3 mr-1" />
+                    Selected
                   </span>
                 )}
               </div>
@@ -564,51 +584,54 @@ const CandidateViewer = () => {
 
         {/* Card Footer */}
         <div className="px-4 py-3 bg-gray-50 border-t border-gray-100">
-          <div className="flex items-center justify-between">
-            {c.resume_url ? (
-              <a
-                className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors"
-                href={c.resume_url}
-                target="_blank"
-                rel="noreferrer"
-              >
-                <EyeIcon className="w-4 h-4" />
-                View Resume
-              </a>
-            ) : (
-              <span className="text-sm text-gray-500">Resume N/A</span>
-            )}
+          {/* Responsive layout: resume (left), interview actions (center, flexible), reject/hold (right) */}
+          <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-0 justify-between">
+            <div className="flex-shrink-0 mr-2">
+              {c.resume_url ? (
+                <a
+                  className="inline-flex items-center gap-2 text-xs font-medium text-blue-700 bg-white border border-blue-200 hover:bg-blue-50 px-2 py-1 rounded-md shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-400 whitespace-nowrap"
+                  href={c.resume_url}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <EyeIcon className="w-4 h-4 text-blue-600" />
+                  View Resume
+                </a>
+              ) : (
+                <span className="text-xs text-gray-500">Resume N/A</span>
+              )}
+            </div>
 
             {/* Interview Status Actions for Shortlisted Candidates */}
             {c.hr_status === "shortlisted" && (
-              <div className="flex items-center gap-2">
+              <div className="flex flex-1 flex-wrap items-center justify-center gap-2">
                 {!c.interview_status && (
                   <>
                     <button
                       onClick={() => handleInterviewStatusUpdate(c.id, "scheduled", c.name)}
                       disabled={updatingInterview === c.id}
-                      className="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-700 bg-blue-100 hover:bg-blue-200 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-700 bg-blue-100 hover:bg-blue-200 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                     >
                       {updatingInterview === c.id ? (
                         "..."
                       ) : (
                         <>
                           <CalendarIcon className="w-3 h-3 mr-1" />
-                          Interview Scheduled
+                          Schedule
                         </>
                       )}
                     </button>
                     <button
                       onClick={() => handleInterviewStatusUpdate(c.id, "taken", c.name)}
                       disabled={updatingInterview === c.id}
-                      className="inline-flex items-center px-2 py-1 text-xs font-medium text-green-700 bg-green-100 hover:bg-green-200 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="inline-flex items-center px-2 py-1 text-xs font-medium text-green-700 bg-green-100 hover:bg-green-200 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                     >
                       {updatingInterview === c.id ? (
                         "..."
                       ) : (
                         <>
                           <CheckBadgeIcon className="w-3 h-3 mr-1" />
-                          Interview Taken
+                          Mark Taken
                         </>
                       )}
                     </button>
@@ -618,41 +641,58 @@ const CandidateViewer = () => {
                   <button
                     onClick={() => handleInterviewStatusUpdate(c.id, "taken", c.name)}
                     disabled={updatingInterview === c.id}
-                    className="inline-flex items-center px-2 py-1 text-xs font-medium text-green-700 bg-green-100 hover:bg-green-200 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="inline-flex items-center px-2 py-1 text-xs font-medium text-green-700 bg-green-100 hover:bg-green-200 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                   >
                     {updatingInterview === c.id ? (
                       "Updating..."
                     ) : (
                       <>
                         <CheckBadgeIcon className="w-3 h-3 mr-1" />
-                        Interview Taken
+                        Mark Taken
                       </>
                     )}
                   </button>
                 )}
                 {c.interview_status === "taken" && (
-                  <span className="inline-flex items-center px-2 py-1 text-xs font-medium text-green-700 bg-green-100 rounded-md">
-                    <CheckBadgeIcon className="w-3 h-3 mr-1" />
-                    Interview Complete
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {/* Selected button - visible only when interview_status is 'taken' */}
+                    <button
+                      onClick={() => handleInterviewStatusUpdate(c.id, "selected", c.name)}
+                      disabled={updatingInterview === c.id}
+                      className="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                    >
+                      {updatingInterview === c.id ? (
+                        "..."
+                      ) : (
+                        <>Selected</>
+                      )}
+                    </button>
+                  </div>
                 )}
               </div>
             )}
 
             {/* Add Reject action for HR Shortlisted candidates */}
             {c.hr_status === "shortlisted" && showActions === false && (
-              <div className="flex items-center gap-2">
+              <div className="flex-shrink-0 flex items-center gap-2">
                 <button
-                  className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:text-white hover:bg-red-600 hover:border-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 rounded-md transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                  className="inline-flex items-center px-2 py-1 text-xs font-medium text-gray-700 bg-white border border-gray-300 hover:text-white hover:bg-red-600 hover:border-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 rounded-md transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm whitespace-nowrap"
                   onClick={() => handleStatusUpdate(c.id, "rejected")}
                   disabled={updatingStatus === c.id}
                 >
                   {updatingStatus === c.id ? "..." : "Reject"}
                 </button>
+                <button
+                  className="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 rounded-md transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm whitespace-nowrap"
+                  onClick={() => handleStatusUpdate(c.id, "hold")}
+                  disabled={updatingStatus === c.id}
+                >
+                  {updatingStatus === c.id ? "..." : "Hold"}
+                </button>
               </div>
             )}
 
-            {/* Action buttons */}
+            {/* Action buttons for other contexts (unchanged) */}
             {showActions && (
               <div className="flex gap-2">
                 {actionType === "default" && (
@@ -897,6 +937,7 @@ const CandidateViewer = () => {
   useEffect(() => {
     setFilteredIndex(0);
     setShortlistedIndex(0);
+    setSelectedIndex(0);
     setHeldIndex(0);
     setRejectedIndex(0);
     setAtsRejectedIndex(0);
@@ -1003,6 +1044,7 @@ ${c.shortlisting_reason ? `• Reason: ${c.shortlisting_reason}` : ""}
                 {[
                   { key: "pending", label: "Pending", count: filtered.length, target: "pending-candidates" },
                   { key: "shortlisted", label: "Shortlisted", count: shortlisted.length, target: "hr-shortlisted" },
+                  { key: "selected", label: "Selected", count: selectedCandidates.length, target: "selected-candidates" },
                   { key: "hold", label: "On Hold", count: held.length, target: "candidates-on-hold" },
                   { key: "rejected", label: "Rejected", count: rejected.length, target: "hr-rejected" },
                   { key: "atsRejected", label: "ATS Rejected", count: atsRejected.length, target: "ats-rejected" },
@@ -1094,6 +1136,15 @@ ${c.shortlisting_reason ? `• Reason: ${c.shortlisting_reason}` : ""}
               "hr-shortlisted",
               shortlistedIndex,
               setShortlistedIndex
+            )}
+          {activeTab === "selected" &&
+            renderSection(
+              "Selected Candidates",
+              applySearchSort(selectedCandidates),
+              false,
+              "selected-candidates",
+              selectedIndex,
+              setSelectedIndex
             )}
           {activeTab === "hold" &&
             renderSection(
