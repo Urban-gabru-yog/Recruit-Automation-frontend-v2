@@ -5,6 +5,92 @@ import { useParams } from "react-router-dom";
 
 const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
+const candidateDateFormatter = new Intl.DateTimeFormat("en-IN", {
+  day: "2-digit",
+  month: "short",
+  year: "numeric",
+  timeZone: "Asia/Kolkata",
+});
+
+const candidateTimeFormatter = new Intl.DateTimeFormat("en-IN", {
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: true,
+  timeZone: "Asia/Kolkata",
+});
+
+const candidateDayPartsFormatter = new Intl.DateTimeFormat("en-IN", {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  timeZone: "Asia/Kolkata",
+});
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+const parseTimestamp = (value) => {
+  if (!value) return null;
+  const timestamp = Date.parse(value);
+  return Number.isNaN(timestamp) ? null : timestamp;
+};
+
+const formatCandidateSubmissionDateTime = (createdAt) => {
+  const timestamp = parseTimestamp(createdAt);
+  if (timestamp === null) return "N/A";
+  const date = new Date(timestamp);
+  return `${candidateDateFormatter.format(date)} ${candidateTimeFormatter.format(date)}`;
+};
+
+const getDayPartsInIST = (timestamp) => {
+  if (timestamp === null) return null;
+  const parts = candidateDayPartsFormatter.formatToParts(new Date(timestamp));
+  const year = Number(parts.find((p) => p.type === "year")?.value);
+  const month = Number(parts.find((p) => p.type === "month")?.value);
+  const day = Number(parts.find((p) => p.type === "day")?.value);
+  if (!year || !month || !day) return null;
+  return { year, month, day };
+};
+
+const getDayStartUtcMsInIST = (timestamp) => {
+  const dayParts = getDayPartsInIST(timestamp);
+  if (!dayParts) return null;
+  return Date.UTC(dayParts.year, dayParts.month - 1, dayParts.day);
+};
+
+const isInDateFilterRange = (createdAt, dateFilterOption, nowTimestamp) => {
+  if (dateFilterOption === "all") return true;
+
+  const createdTimestamp = parseTimestamp(createdAt);
+  if (createdTimestamp === null) return false;
+
+  const candidateDayMs = getDayStartUtcMsInIST(createdTimestamp);
+  const todayDayMs = getDayStartUtcMsInIST(nowTimestamp);
+  if (candidateDayMs === null || todayDayMs === null) return false;
+
+  const dayDiff = Math.floor((todayDayMs - candidateDayMs) / MS_PER_DAY);
+
+  switch (dateFilterOption) {
+    case "today":
+      return dayDiff === 0;
+    case "last_7_days":
+      return dayDiff >= 0 && dayDiff < 7;
+    case "last_30_days":
+      return dayDiff >= 0 && dayDiff < 30;
+    case "this_month": {
+      const candidateParts = getDayPartsInIST(createdTimestamp);
+      const todayParts = getDayPartsInIST(nowTimestamp);
+      return (
+        !!candidateParts &&
+        !!todayParts &&
+        candidateParts.year === todayParts.year &&
+        candidateParts.month === todayParts.month
+      );
+    }
+    default:
+      return true;
+  }
+};
+
 // Replaced Heroicons imports with inlined SVG components
 const CheckCircleIcon = (props) => (
   <svg
@@ -244,6 +330,7 @@ const CandidateViewer = () => {
   // Search & Sort (per active tab)
   const [searchQuery, setSearchQuery] = useState("");
   const [sortOption, setSortOption] = useState("ats_desc"); // ats_desc | ats_asc | name_asc | name_desc
+  const [dateFilterOption, setDateFilterOption] = useState("all"); // all | today | last_7_days | last_30_days | this_month
 
   // Pagination states - now for carousel
   const [filteredIndex, setFilteredIndex] = useState(0);
@@ -431,6 +518,7 @@ const CandidateViewer = () => {
 
   const renderCandidateCard = (c, showActions = false, actionType = "default") => {
     const isExpanded = expandedCards.has(c.id);
+    const submittedAtLabel = formatCandidateSubmissionDateTime(c.createdAt);
 
     return (
       <div
@@ -482,6 +570,10 @@ const CandidateViewer = () => {
               </p>
               <p className="text-sm text-gray-500 truncate">
                 {c.phone || <span className="italic">N/A</span>}
+              </p>
+              <p className="mt-1 inline-flex items-center gap-1 text-xs text-gray-500">
+                <ClockIcon />
+                <span className="truncate">{submittedAtLabel}</span>
               </p>
             </div>
             <div className="text-right flex-shrink-0">
@@ -902,10 +994,12 @@ const CandidateViewer = () => {
     );
   };
 
-  // Apply search and sort to a list for current tab view
+  // Apply search, date filter, and sort to a list for current tab view
   const applySearchSort = (list) => {
     let result = Array.isArray(list) ? [...list] : [];
     const q = searchQuery.trim().toLowerCase();
+    const nowTimestamp = Date.now();
+
     if (q) {
       result = result.filter((c) => {
         const name = (c.name || "").toLowerCase();
@@ -913,8 +1007,14 @@ const CandidateViewer = () => {
         return name.includes(q) || email.includes(q);
       });
     }
+
+    result = result.filter((c) =>
+      isInDateFilterRange(c.createdAt, dateFilterOption, nowTimestamp)
+    );
+
     const scoreVal = (c) => (typeof c.ats_score === "number" ? c.ats_score : -1);
     const nameVal = (c) => (c.name || "").toLowerCase();
+
     switch (sortOption) {
       case "ats_asc":
         result.sort((a, b) => scoreVal(a) - scoreVal(b));
@@ -941,7 +1041,7 @@ const CandidateViewer = () => {
     setHeldIndex(0);
     setRejectedIndex(0);
     setAtsRejectedIndex(0);
-  }, [searchQuery, sortOption]);
+  }, [searchQuery, sortOption, dateFilterOption]);
 
   const handleOpenMail = () => {
     if (!shortlisted.length) {
@@ -1088,7 +1188,21 @@ ${c.shortlisting_reason ? `• Reason: ${c.shortlisting_reason}` : ""}
                 aria-label="Search candidates by name or email"
               />
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <label htmlFor="date-filter-option" className="text-sm text-gray-700">Submission date:</label>
+              <select
+                id="date-filter-option"
+                value={dateFilterOption}
+                onChange={(e) => setDateFilterOption(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              >
+                <option value="all">All dates</option>
+                <option value="today">Today</option>
+                <option value="last_7_days">Last 7 days</option>
+                <option value="last_30_days">Last 30 days</option>
+                <option value="this_month">This month</option>
+              </select>
+
               <label htmlFor="sort-option" className="text-sm text-gray-700">Sort by:</label>
               <select
                 id="sort-option"
