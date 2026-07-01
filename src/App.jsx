@@ -5,6 +5,7 @@ import Dashboard from './pages/Dashboard';
 import HiringForm from './pages/HiringForm';
 import CandidateViewer from './pages/CandidateViewer';
 import HoldPool from './pages/HoldPool';
+import Docs from './pages/Docs';
 
 const ProtectedRoute = ({ user, children }) => {
   return user ? children : <Navigate to="/" replace />;
@@ -70,6 +71,9 @@ const App = () => {
             </ProtectedRoute>
           }
         />
+
+        {/* Public: Documentation */}
+        <Route path="/docs" element={<Docs />} />
 
         {/* Catch-all */}
         <Route path="*" element={<Navigate to="/" replace />} />
